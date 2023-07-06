@@ -61,6 +61,7 @@ def slice_and_move_batch_for_device(batch: Dict, rank: int, world_size: int, dev
     start = chunk_size * rank
     end = chunk_size * (rank + 1)
     sliced = {k: v[start:end] for k, v in batch.items()}
+    device = f"cuda:{device}"
     on_device = {k: (v.to(device) if isinstance(v, torch.Tensor) else v) for k, v in sliced.items()}
     return on_device
 
