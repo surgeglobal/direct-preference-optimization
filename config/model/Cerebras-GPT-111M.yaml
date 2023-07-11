@@ -1,7 +1,7 @@
 name_or_path: cerebras/Cerebras-GPT-111M
 tokenizer_name_or_path: null
 archive: null
-block_name: GPTNeoXLayer
+block_name: GPT2Block
 
 policy_dtype: float32
 fsdp_policy_mp: null
