@@ -13,6 +13,7 @@ import wandb
 import json
 import socket
 from typing import Optional, Set
+import gc
 
 
 OmegaConf.register_new_resolver("get_local_run_dir", lambda exp_name, local_dirs: get_local_run_dir(exp_name, local_dirs))
@@ -95,6 +96,8 @@ def main(config: DictConfig):
         disable_dropout(reference_model)
     else:
         reference_model = None
+    
+    gc.collect()
 
     if config.model.archive is not None:
         state_dict = torch.load(config.model.archive, map_location='cpu')
