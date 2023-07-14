@@ -40,8 +40,6 @@ import json
 import functools
 from typing import Optional, Dict, List, Union, Tuple
 
-import gc
-
 
 def dpo_loss(policy_chosen_logps: torch.FloatTensor,
              policy_rejected_logps: torch.FloatTensor,
@@ -267,7 +265,6 @@ class BasicTrainer(object):
 
         for batch in self.train_iterator:
             #### BEGIN EVALUATION ####
-            gc.collect()
             if self.example_counter % self.config.eval_every == 0 and (self.example_counter > 0 or self.config.do_first_eval):
                 rank0_print(f'Running evaluation after {self.example_counter} train examples')
                 self.policy.eval()
@@ -318,13 +315,13 @@ class BasicTrainer(object):
                         if self.config.loss.name == 'dpo':
                             wandb.log({"reference_samples": reference_text_table}, step=self.example_counter)
 
-                # if self.example_counter > 0:
-                if self.config.debug:
-                    rank0_print('skipping save in debug mode')
-                else:
-                    output_dir = os.path.join(self.run_dir, f'step-{self.example_counter}')
-                    rank0_print(f'creating checkpoint to write to {output_dir}...')
-                    self.save(output_dir, mean_eval_metrics)
+                if self.example_counter > 0:
+                    if self.config.debug:
+                        rank0_print('skipping save in debug mode')
+                    else:
+                        output_dir = os.path.join(self.run_dir, f'step-{self.example_counter}')
+                        rank0_print(f'creating checkpoint to write to {output_dir}...')
+                        self.save(output_dir, mean_eval_metrics)
             #### END EVALUATION ####
 
             #### BEGIN TRAINING ####
