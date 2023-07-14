@@ -96,8 +96,6 @@ def main(config: DictConfig):
         disable_dropout(reference_model)
     else:
         reference_model = None
-    
-    gc.collect()
 
     if config.model.archive is not None:
         state_dict = torch.load(config.model.archive, map_location='cpu')
