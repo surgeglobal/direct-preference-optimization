@@ -156,7 +156,7 @@ class BasicTrainer(object):
                 's3',
                 aws_access_key_id=self.config.s3.access_key,
                 aws_secret_access_key=self.config.s3.secret_key,
-                endpoint_url=self.config.endpoint_url,
+                endpoint_url=self.config.s3.endpoint_url,
             )
             print("Bucket storage initialized...")
 
