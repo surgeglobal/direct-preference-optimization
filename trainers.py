@@ -42,6 +42,7 @@ from typing import Optional, Dict, List, Union, Tuple
 
 import boto3
 import time
+from multiprocessing import Process
 
 
 def dpo_loss(policy_chosen_logps: torch.FloatTensor,
@@ -400,11 +401,33 @@ class BasicTrainer(object):
         }, output_path)
 
         if self.config.s3.enabled:
+            def upload_async(access_key: str, secret_key:str, endpoint_url: str, local_file_path: str, bucket_name: str, remote_file_path: str):
+                import boto3
+                import os
+
+                try:
+                    print(f'uploading checkpoint to {bucket_name}/{remote_file_path}...')
+                except:
+                    pass
+                
+                s3_client = boto3.client(
+                    's3',
+                    aws_access_key_id=access_key,
+                    aws_secret_access_key=secret_key,
+                    endpoint_url=endpoint_url,
+                )
+                s3_client.upload_file(local_file_path, bucket_name, remote_file_path)
+
+                os.remove(output_path)
+
+                try:
+                    rank0_print(f'checkpoint uploaded to {bucket_name}/{remote_file_path}.')
+                except:
+                    pass
+            
             s3_file_path = f"{self._s3_run_folder_path}/step-{step}/{filename}"
-            rank0_print(f'uploading checkpoint to {self.config.s3.bucket_name}/{s3_file_path}...')
-            self.s3_client.upload_file(output_path, self.config.s3.bucket_name, s3_file_path)
-            rank0_print(f'checkpoint uploaded to {self.config.s3.bucket_name}/{s3_file_path}.')
-            os.remove(output_path)
+            proc = Process(target=upload_async, args=(self.config.s3.access_key, self.config.s3.secret_key, self.config.s3.endpoint_url, output_path, self.config.s3.bucket_name, s3_file_path))
+            proc.start()
     
     def save(self, output_dir: Optional[str] = None, metrics: Optional[Dict] = None):
         """Save policy, optimizer, and scheduler state to disk."""
