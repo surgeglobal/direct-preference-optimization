@@ -40,6 +40,9 @@ import json
 import functools
 from typing import Optional, Dict, List, Union, Tuple
 
+import boto3
+import time
+
 
 def dpo_loss(policy_chosen_logps: torch.FloatTensor,
              policy_rejected_logps: torch.FloatTensor,
@@ -144,6 +147,18 @@ class BasicTrainer(object):
         self.world_size = world_size
         self.config = config
         self.run_dir = run_dir
+
+        if self.config.s3.enabled:
+            print("Initializing bucket storage...")
+            self._s3_run_folder_path = f"{self.config.exp_name}/run_{str(int(time.time()))}"
+
+            self.s3_client = boto3.client(
+                's3',
+                aws_access_key_id=self.config.s3.access_key,
+                aws_secret_access_key=self.config.s3.secret_key,
+                endpoint_url=self.config.endpoint_url,
+            )
+            print("Bucket storage initialized...")
 
         tokenizer_name_or_path = config.model.tokenizer_name_or_path or config.model.name_or_path
         rank0_print(f'Loading tokenizer {tokenizer_name_or_path}')
@@ -383,6 +398,13 @@ class BasicTrainer(object):
             'state': state,
             'metrics': metrics if metrics is not None else {},
         }, output_path)
+
+        if self.config.s3.enabled:
+            s3_file_path = f"{self._s3_run_folder_path}/step-{step}/{filename}"
+            rank0_print(f'uploading checkpoint to {self.config.s3.bucket_name}/{s3_file_path}...')
+            self.s3_client.upload_file(output_path, self.config.s3.bucket_name, s3_file_path)
+            rank0_print(f'checkpoint uploaded to {self.config.s3.bucket_name}/{s3_file_path}.')
+            os.remove(output_path)
     
     def save(self, output_dir: Optional[str] = None, metrics: Optional[Dict] = None):
         """Save policy, optimizer, and scheduler state to disk."""

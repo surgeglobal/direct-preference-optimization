@@ -20,6 +20,13 @@ fsdp_port: 12355
 datasets:
 - hh
 
+s3:
+  enabled: false
+  access_key: "jxdv3qfazii4xqov2dmolxvj4bga"
+  secret_key: "j2ndudriu5kl6ofo47wu7em5c4n666fcvuagzb6dnko7o4skmrcos"
+  endpoint_url: "https://gateway.storjshare.io"
+  bucket_name: "direct-preference-optimization"
+
 # wandb configuration
 wandb:
   enabled: true
