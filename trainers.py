@@ -136,7 +136,7 @@ def concatenated_inputs(batch: Dict[str, Union[List, torch.LongTensor]]) -> Dict
 
 
 class BasicTrainer(object):
-    def __init__(self, policy: nn.Module, config: DictConfig, seed: int, run_dir: str, reference_model: Optional[nn.Module] = None, rank: int = 0, world_size: int = 1):
+    def __init__(self, policy: nn.Module, config: DictConfig, seed: int, run_dir: str, reference_model: Optional[nn.Module] = None, rank: int = 0, world_size: int = 1, start_step: int = 0):
         """A trainer for a language model, supporting either SFT or DPO training.
            
            If multiple GPUs are present, naively splits the model across them, effectively
@@ -177,6 +177,8 @@ class BasicTrainer(object):
 
         self.policy = policy
         self.reference_model = reference_model
+
+        self.start_step = start_step
 
         self.train_iterator = get_batch_iterator(**data_iterator_kwargs, split='train', n_epochs=config.n_epochs, n_examples=config.n_examples, batch_size=config.batch_size, silent=rank != 0, cache_dir=get_local_dir(config.local_dirs))
         rank0_print(f'Loaded train data iterator')
@@ -286,7 +288,7 @@ class BasicTrainer(object):
         if self.config.loss.name == 'dpo':
             self.reference_model.eval()
 
-        self.example_counter = 0
+        self.example_counter = self.start_step
         self.batch_counter = 0
         last_log = None
 
@@ -382,6 +384,9 @@ class BasicTrainer(object):
                 mean_train_metrics = {k: sum(v) / len(v) for k, v in batch_metrics.items()}
                 mean_train_metrics['counters/examples'] = self.example_counter
                 mean_train_metrics['counters/updates'] = self.batch_counter
+                if self.start_step != 0:
+                    rank0_print(f"counters/updates in logs can be incorrect since training started from {self.example_counter} steps")
+                
                 rank0_print(f'train stats after {self.example_counter} examples: {formatted_dict(mean_train_metrics)}')
 
                 if self.config.wandb.enabled and self.rank == 0:
