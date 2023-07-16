@@ -287,7 +287,7 @@ def get_batch_iterator(names: List[str],
                        sft_mode: bool = False,
                        n_epochs: Optional[int] = None,
                        n_examples: Optional[int] = None,
-                       d_examples: Optiona[int] = None,
+                       d_examples: Optional[int] = None,
                        seed:int = 0,
                        silent: bool = False,
                        cache_dir: Optional[str] = None) -> Iterator[Dict]:
