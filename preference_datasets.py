@@ -287,6 +287,7 @@ def get_batch_iterator(names: List[str],
                        sft_mode: bool = False,
                        n_epochs: Optional[int] = None,
                        n_examples: Optional[int] = None,
+                       d_examples: Optiona[int] = None,
                        seed:int = 0,
                        silent: bool = False,
                        cache_dir: Optional[str] = None) -> Iterator[Dict]:
@@ -301,13 +302,14 @@ def get_batch_iterator(names: List[str],
         max_length: Maximum length of the combined prompt + response.
         max_prompt_length: Maximum length of the prompt.
         sft_mode: Whether to use SFT mode (i.e., return sft_target instead of chosen/rejected). In sft mode, we just return chosen_input_ids, but they contain the sft_target.
-        n_epochs: Number of epochs to run for. This or n_examples must be specified.
-        n_examples: Number of examples to run for. This or n_epochs must be specified.
+        n_epochs: Number of epochs to run for. This or n_examples or d_examples must be specified.
+        n_examples: Number of examples to run for. This or n_epochs or n_examples must be specified.
+        d_examples: Number of examples completed so far by previous training. If none of the n_epochs or n_examples is defined, this must be defined.
         seed: Random seed.
         silent: Whether to silence the progress bar(s).
         cache_dir: Directory to cache the datasets in.
     """
-    assert n_epochs is not None or n_examples is not None, "Must specify either n_epochs or n_examples"
+    assert n_epochs is not None or n_examples is not None or d_examples, "Must specify either n_epochs or n_examples or d_examples"
     if silent:
         datasets.logging.disable_progress_bar()
         datasets.logging.set_verbosity_error()
@@ -321,6 +323,9 @@ def get_batch_iterator(names: List[str],
                 flat_data.append((prompt, data['responses'], data['pairs'], data['sft_target'], truncation_mode))
 
     collate_fn = get_collate_fn(tokenizer)
+
+    if d_examples is not None:
+        n_examples = len(flat_data) - d_examples
 
     epoch_idx = 0
     example_idx = 0
