@@ -526,13 +526,13 @@ class FSDPTrainer(BasicTrainer):
         
 
 class TensorParallelTrainer(BasicTrainer):
-    def __init__(self, policy, config, seed, run_dir, reference_model=None, rank=0, world_size=1):
+    def __init__(self, policy, config, seed, run_dir, reference_model=None, rank=0, world_size=1, start_step: int = 0):
         """A trainer subclass that uses TensorParallel to shard the model across multiple GPUs.
 
            Based on https://github.com/BlackSamorez/tensor_parallel. Note sampling is extremely slow,
               see https://github.com/BlackSamorez/tensor_parallel/issues/66.
         """
-        super().__init__(policy, config, seed, run_dir, reference_model, rank, world_size)
+        super().__init__(policy, config, seed, run_dir, reference_model, rank, world_size, start_step)
         
         rank0_print('Sharding policy...')
         self.policy = tp.tensor_parallel(policy, sharded=True)
