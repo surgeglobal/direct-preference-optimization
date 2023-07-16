@@ -103,6 +103,9 @@ def main(config: DictConfig):
         policy.load_state_dict(state_dict['state'])
         if config.loss.name == 'dpo':
             reference_model.load_state_dict(state_dict['state'])
+        
+        if config.clean_chkpt_after_load:
+            os.remove(config.model.archive)
         print('loaded pre-trained weights')
     
     if 'FSDP' in config.trainer:

@@ -92,6 +92,9 @@ optimizer_path: null
 # Scheduler Loading from Disk
 scheduler_path: null
 
+# A strategy to save storage after reading checkpoints
+clean_chkpt_after_load: false
+
 # number of linear warmup steps for the learning rate
 warmup_steps: 150
 
