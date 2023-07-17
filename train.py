@@ -109,7 +109,11 @@ def main(config: DictConfig):
         if config.clean_chkpt_after_load:
             os.remove(config.model.archive)
         
-        start_step = step
+        # If optimizer_path or scheduler_path is not set, then it is not resuming.
+        # It is simply starting DPO training.
+        # However, if set, it is resuming and we need to set the start_step
+        if config.optimizer_path is not None or config.scheduler_path is not None:
+            start_step = step
         print('loaded pre-trained weights')
     
     if 'FSDP' in config.trainer:
