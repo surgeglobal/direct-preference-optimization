@@ -86,6 +86,9 @@ quantization: "None"
 # The optimizer to use; we use RMSprop because it works about as well as Adam and is more memory-efficient
 optimizer: RMSprop
 
+# Reference model path in case that it is resuming training from a checkpoint in doing DPO.
+reference_model_path: null
+
 # Optimizer Loading from Disk
 optimizer_path: null
 

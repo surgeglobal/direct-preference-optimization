@@ -104,7 +104,11 @@ def main(config: DictConfig):
         print(f'loading pre-trained weights at step {step} from {config.model.archive} with metrics {json.dumps(metrics, indent=2)}')
         policy.load_state_dict(state_dict['state'])
         if config.loss.name == 'dpo':
-            reference_model.load_state_dict(state_dict['state'])
+            if config.reference_model_path:
+                ref_state_dict = torch.load(config.model.reference_model_path, map_location='cpu')
+                reference_model.load_state_dict(ref_state_dict["state"])
+            else:
+                reference_model.load_state_dict(state_dict['state'])
         
         if config.clean_chkpt_after_load:
             os.remove(config.model.archive)
