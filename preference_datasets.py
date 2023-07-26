@@ -63,7 +63,7 @@ def get_se(split, silent=False, cache_dir: str = None) -> Dict[str, Dict[str, Un
             a['text'] = strip_html_tags(a['text'])
         return x
 
-    dataset = dataset.map(strip_html, num_proc=64)
+    dataset = dataset.map(strip_html, num_proc=8)
 
     data = defaultdict(dict)
     for row in tqdm.tqdm(dataset, desc='Processing SE', disable=silent):
