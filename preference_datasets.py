@@ -323,7 +323,6 @@ def get_dataset(name: str, split: str, silent: bool = False, cache_dir: str = No
     elif name == 'se':
         data = get_se(split, silent=silent, cache_dir=cache_dir)
     elif name == 'oa':
-        print("Test")
         data = get_oa("validation" if split == "test" else split, silent=silent, cache_dir=cache_dir)
     else:
         raise ValueError(f"Unknown dataset '{name}'")
