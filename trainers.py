@@ -186,10 +186,10 @@ class BasicTrainer(object):
 
            Concatenated forward pass is not really possible with T5 models, so we have to do 2 forward passes.
         """
-        chosen_logits = model(batch['prompt_input_ids'], attention_mask=batch['prompt_attention_mask'], decoder_input_ids=batch['chosen_input_ids']).logits.to(torch.float32)
+        chosen_logits = model(batch['prompt_input_ids'], attention_mask=batch['prompt_attention_mask'], labels=batch['chosen_input_ids']).logits.to(torch.float32)
         chosen_logps = _get_batch_logps(chosen_logits, batch['chosen_input_ids'], average_log_prob=False)
 
-        rejected_logits = model(batch['prompt_input_ids'], attention_mask=batch['prompt_attention_mask'], decoder_input_ids=batch['rejected_input_ids']).logits.to(torch.float32)
+        rejected_logits = model(batch['prompt_input_ids'], attention_mask=batch['prompt_attention_mask'], labels=batch['rejected_input_ids']).logits.to(torch.float32)
         rejected_logps = _get_batch_logps(rejected_logits, batch['rejected_input_ids'], average_log_prob=False)
 
         return chosen_logps, rejected_logps
