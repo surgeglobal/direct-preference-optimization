@@ -376,9 +376,9 @@ def tokenize_batch_element(prompt: str, chosen: str, rejected: str, truncation_m
          the sum of the length of the prompt and the chosen/rejected response, with -100 for the
          prompt tokens.
     """
-    chosen_tokens = tokenizer(chosen, add_special_tokens=False, return_tensors="pt")
-    rejected_tokens = tokenizer(rejected, add_special_tokens=False, return_tensors="pt")
-    prompt_tokens = tokenizer(prompt, add_special_tokens=False, return_tensors="pt")
+    chosen_tokens = tokenizer(chosen, add_special_tokens=False)
+    rejected_tokens = tokenizer(rejected, add_special_tokens=False)
+    prompt_tokens = tokenizer(prompt, add_special_tokens=False)
 
     assert tokenizer.eos_token_id not in prompt_tokens['input_ids'], f"Prompt contains EOS token: {prompt}"
     assert tokenizer.eos_token_id not in chosen_tokens['input_ids'], f"Chosen response contains EOS token: {chosen}"
