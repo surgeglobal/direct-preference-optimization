@@ -221,8 +221,8 @@ class BasicTrainer(object):
            We do this to avoid doing two forward passes, because it's faster for FSDP.
         """
         concatenated_batch = concatenated_inputs(batch)
-        all_logits = model(concatenated_batch['concatenated_prompt_input_ids'], attention_mask=concatenated_batch['concatenated_prompt_attention_mask'], decoder_input_ids=batch['concatenated_response_input_ids']).logits.to(torch.float32)
-        all_logps = _get_batch_logps(all_logits, batch['concatenated_response_input_ids'], average_log_prob=False)
+        all_logits = model(concatenated_batch['concatenated_prompt_input_ids'], attention_mask=concatenated_batch['concatenated_prompt_attention_mask'], decoder_input_ids=concatenated_batch['concatenated_response_input_ids']).logits.to(torch.float32)
+        all_logps = _get_batch_logps(all_logits, concatenated_batch['concatenated_response_input_ids'], average_log_prob=False)
         # If the following doesn't work, try the commented out lines below them (which assumes that they are delimited at the model outputs)
         chosen_logps = all_logps[:batch['prompt_input_ids'].shape[0]]
         rejected_logps = all_logps[batch['prompt_input_ids'].shape[0]:]
