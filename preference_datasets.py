@@ -343,15 +343,13 @@ def get_collate_fn(tokenizer) -> Callable[[List[Dict]], Dict[str, Union[List, to
         # first, pad everything to the same length
         padded_batch = {}
         for k in batch[0].keys():
-            if k.endswith('_input_ids') or k.endswith('_attention_mask') or k.endswith('_labels'):
+            if k.endswith('_input_ids') or k.endswith('_attention_mask'):
                 if 'prompt' in k:  # adapted from https://stackoverflow.com/questions/73256206
                     to_pad = [torch.LongTensor(ex[k][::-1]) for ex in batch]
                 else:
                     to_pad = [torch.LongTensor(ex[k]) for ex in batch]
                 if k.endswith('_input_ids'):
                     padding_value = tokenizer.pad_token_id
-                elif k.endswith('_labels'):
-                    padding_value = -100
                 elif k.endswith('_attention_mask'):
                     padding_value = 0
                 else:
@@ -408,14 +406,6 @@ def tokenize_batch_element(prompt: str, chosen: str, rejected: str, truncation_m
         chosen_tokens = {k: v[:max_length - max_prompt_length] for k, v in chosen_tokens.items()}
         rejected_tokens = {k: v[:max_length - max_prompt_length] for k, v in rejected_tokens.items()}
 
-    # Create labels
-    chosen_sequence_tokens = {k: prompt_tokens[k] + chosen_tokens[k] for k in chosen_tokens}
-    rejected_sequence_tokens = {k: prompt_tokens[k] + rejected_tokens[k] for k in rejected_tokens}
-    chosen_sequence_tokens['labels'] = chosen_sequence_tokens['input_ids'][:]
-    chosen_sequence_tokens['labels'][:len(prompt_tokens['input_ids'])] = [-100] * len(prompt_tokens['input_ids'])
-    rejected_sequence_tokens['labels'] = rejected_sequence_tokens['input_ids'][:]
-    rejected_sequence_tokens['labels'][:len(prompt_tokens['input_ids'])] = [-100] * len(prompt_tokens['input_ids'])
-
     batch = {}
 
     batch['prompt'] = prompt
@@ -424,7 +414,7 @@ def tokenize_batch_element(prompt: str, chosen: str, rejected: str, truncation_m
     batch['chosen_response_only'] = chosen
     batch['rejected_response_only'] = rejected
 
-    for k, toks in {'chosen': chosen_sequence_tokens, 'rejected': rejected_sequence_tokens, 'prompt': prompt_tokens}.items():
+    for k, toks in {'chosen': chosen_tokens, 'rejected': rejected_tokens, 'prompt': prompt_tokens}.items():
         for type_key, tokens in toks.items():
             if type_key == 'token_type_ids':
                 continue
