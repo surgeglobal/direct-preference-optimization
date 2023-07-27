@@ -194,7 +194,6 @@ class BasicTrainer(object):
 
         return chosen_logps, rejected_logps
 
-
     def get_batch_metrics(self, batch: Dict[str, Union[List, torch.LongTensor]], loss_config: DictConfig, train=True):
         """Compute the SFT or DPO loss and other metrics for the given batch of inputs."""
         metrics = {}
@@ -317,13 +316,17 @@ class BasicTrainer(object):
                         if self.config.loss.name == 'dpo':
                             wandb.log({"reference_samples": reference_text_table}, step=self.example_counter)
 
-                if self.example_counter > 0:
-                    if self.config.debug:
-                        rank0_print('skipping save in debug mode')
-                    else:
-                        output_dir = os.path.join(self.run_dir, f'step-{self.example_counter}')
-                        rank0_print(f'creating checkpoint to write to {output_dir}...')
-                        self.save(output_dir, mean_eval_metrics)
+                # if self.example_counter > 0:
+                #     if self.config.debug:
+                #         rank0_print('skipping save in debug mode')
+                #     else:
+                #         output_dir = os.path.join(self.run_dir, f'step-{self.example_counter}')
+                #         rank0_print(f'creating checkpoint to write to {output_dir}...')
+                #         self.save(output_dir, mean_eval_metrics)
+                
+                output_dir = os.path.join(self.run_dir, f'step-{self.example_counter}')
+                rank0_print(f'creating checkpoint to write to {output_dir}...')
+                self.save(output_dir, mean_eval_metrics)
             #### END EVALUATION ####
 
             #### BEGIN TRAINING ####
