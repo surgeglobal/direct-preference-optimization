@@ -123,7 +123,7 @@ def concatenated_inputs(batch: Dict[str, Union[List, torch.LongTensor]]) -> Dict
     # TODO: Probably, add the prompt twice, and make sure that two responses are padded as well.
     for k in batch:
         if k.startswith('prompt') and isinstance(batch[k], torch.Tensor):
-            concatenated_key = "concatenated_prompt"
+            concatenated_key = k.replace("prompt", "concatenated_prompt")
             padded_prompt = pad_to_length(batch[k], max_length_prompt, pad_value=0)
             concatenated_batch[concatenated_key] = torch.cat((
                 padded_prompt,
@@ -221,7 +221,7 @@ class BasicTrainer(object):
            We do this to avoid doing two forward passes, because it's faster for FSDP.
         """
         concatenated_batch = concatenated_inputs(batch)
-        all_logits = model(concatenated_batch['concatenated_prompt'], attention_mask=concatenated_batch['concatenated_attention_mask'], decoder_input_ids=batch['concatenated_response_input_ids']).logits.to(torch.float32)
+        all_logits = model(concatenated_batch['concatenated_prompt'], attention_mask=concatenated_batch['concatenated_prompt_attention_mask'], decoder_input_ids=batch['concatenated_response_input_ids']).logits.to(torch.float32)
         all_logps = _get_batch_logps(all_logits, batch['concatenated_response_input_ids'], average_log_prob=False)
         chosen_logps = all_logps[:batch['chosen_input_ids'].shape[0]]
         rejected_logps = all_logps[batch['chosen_input_ids'].shape[0]:]
@@ -255,7 +255,7 @@ class BasicTrainer(object):
             metrics[f'logps_{train_test}/rejected'] = policy_rejected_logps.cpu().numpy().tolist()
 
         elif loss_config.name == 'sft':
-            policy_chosen_logits = self.policy(batch['prompt_input_ids'], attention_mask=batch['chosen_attention_mask'], decoder_input_ids=batch['chosen_input_ids']).logits.to(torch.float32)
+            policy_chosen_logits = self.policy(batch['prompt_input_ids'], attention_mask=batch['prompt_attention_mask'], decoder_input_ids=batch['chosen_input_ids']).logits.to(torch.float32)
             policy_chosen_logps = _get_batch_logps(policy_chosen_logits, batch['chosen_input_ids'], average_log_prob=False)
 
             losses = -policy_chosen_logps
