@@ -108,40 +108,6 @@ def _get_batch_logps(logits: torch.FloatTensor, labels: torch.LongTensor, averag
         return (per_token_logps * loss_mask).sum(-1)
 
 
-def concatenated_inputs(batch: Dict[str, Union[List, torch.LongTensor]]) -> Dict[str, torch.LongTensor]:
-    """Concatenate the chosen and rejected inputs into a single tensor.
-    
-    Args:
-        batch: A batch of data. Must contain the keys 'chosen_input_ids' and 'rejected_input_ids', which are tensors of shape (batch_size, sequence_length).
-        
-    Returns:
-        A dictionary containing the concatenated inputs under the key 'concatenated_input_ids'.
-    """
-    max_length_prompt = batch["prompt_input_ids"].shape[1]
-    max_length_response = max(batch['chosen_input_ids'].shape[1], batch['rejected_input_ids'].shape[1])
-    concatenated_batch = {}
-    # TODO: Probably, add the prompt twice, and make sure that two responses are padded as well.
-    for k in batch:
-        if k.startswith('prompt') and isinstance(batch[k], torch.Tensor):
-            concatenated_key = k.replace("prompt", "concatenated_prompt")
-            padded_prompt = pad_to_length(batch[k], max_length_prompt, pad_value=0)
-            concatenated_batch[concatenated_key] = torch.cat((
-                padded_prompt,
-                padded_prompt,
-            ), dim=0)
-        if k.startswith('chosen') and isinstance(batch[k], torch.Tensor):
-            concatenated_key = k.replace('chosen', 'concatenated_response')
-            concatenated_batch[concatenated_key] = pad_to_length(batch[k], max_length_response, pad_value=0)
-    for k in batch:
-        if k.startswith('rejected') and isinstance(batch[k], torch.Tensor):
-            concatenated_key = k.replace('rejected', 'concatenated_response')
-            concatenated_batch[concatenated_key] = torch.cat((
-                concatenated_batch[concatenated_key],
-                pad_to_length(batch[k], max_length_response, pad_value=0),
-            ), dim=0)
-    return concatenated_batch
-
-
 class BasicTrainer(object):
     def __init__(self, policy: nn.Module, config: DictConfig, seed: int, run_dir: str, reference_model: Optional[nn.Module] = None, rank: int = 0, world_size: int = 1, start_step: int = 0):
         """A trainer for a language model, supporting either SFT or DPO training.
@@ -215,19 +181,17 @@ class BasicTrainer(object):
 
         return policy_output_decoded, reference_output_decoded
     
-    def concatenated_forward(self, model: nn.Module, batch: Dict[str, Union[List, torch.LongTensor]]) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
-        """Run the given model on the given batch of inputs, concatenating the chosen and rejected inputs together.
-        
-           We do this to avoid doing two forward passes, because it's faster for FSDP.
+    def forward(self, model: nn.Module, batch: Dict[str, Union[List, torch.LongTensor]]) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
+        """Run the given model on the given batch of inputs.
+
+           Concatenated forward pass is not really possible with T5 models, so we have to do 2 forward passes.
         """
-        concatenated_batch = concatenated_inputs(batch)
-        all_logits = model(concatenated_batch['concatenated_prompt_input_ids'], attention_mask=concatenated_batch['concatenated_prompt_attention_mask'], decoder_input_ids=concatenated_batch['concatenated_response_input_ids']).logits.to(torch.float32)
-        all_logps = _get_batch_logps(all_logits, concatenated_batch['concatenated_response_input_ids'], average_log_prob=False)
-        # If the following doesn't work, try the commented out lines below them (which assumes that they are delimited at the model outputs)
-        # chosen_logps = all_logps[:batch['prompt_input_ids'].shape[0]]
-        # rejected_logps = all_logps[batch['prompt_input_ids'].shape[0]:]
-        chosen_logps = all_logps[:batch['chosen_input_ids'].shape[0]]
-        rejected_logps = all_logps[batch['chosen_input_ids'].shape[0]:]
+        chosen_logits = model(batch['prompt_input_ids'], attention_mask=batch['prompt_attention_mask'], decoder_input_ids=batch['chosen_input_ids']).logits.to(torch.float32)
+        chosen_logps = _get_batch_logps(chosen_logits, batch['chosen_input_ids'], average_log_prob=False)
+
+        rejected_logits = model(batch['prompt_input_ids'], attention_mask=batch['prompt_attention_mask'], decoder_input_ids=batch['rejected_input_ids']).logits.to(torch.float32)
+        rejected_logps = _get_batch_logps(rejected_logits, batch['rejected_input_ids'], average_log_prob=False)
+
         return chosen_logps, rejected_logps
 
 
@@ -237,9 +201,9 @@ class BasicTrainer(object):
         train_test = 'train' if train else 'eval'
 
         if loss_config.name == 'dpo':
-            policy_chosen_logps, policy_rejected_logps = self.concatenated_forward(self.policy, batch)
+            policy_chosen_logps, policy_rejected_logps = self.forward(self.policy, batch)
             with torch.no_grad():
-                reference_chosen_logps, reference_rejected_logps = self.concatenated_forward(self.reference_model, batch)
+                reference_chosen_logps, reference_rejected_logps = self.forward(self.reference_model, batch)
 
             losses, chosen_rewards, rejected_rewards = dpo_loss(
                 policy_chosen_logps, policy_rejected_logps, reference_chosen_logps, reference_rejected_logps, beta=loss_config.beta, reference_free=loss_config.reference_free)
