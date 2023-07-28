@@ -22,10 +22,10 @@ datasets:
 
 s3:
   enabled: false
-  access_key: "DO004JFTH7T4PEXK8C4W"
-  secret_key: "H29kKan6RYcyFsm5DC7CO4ak1nTDtxyFaS3stkmgW5k"
-  endpoint_url: "https://sfo3.digitaloceanspaces.com"
-  bucket_name: "direct-preference-optimization"
+  access_key: "GOOGHB72G5FYQ572Q4LJMUT4"
+  secret_key: "AnnBSNp0RKKzHpFeDRX4AoyBlTpmWjXPDNonG/6r"
+  endpoint_url: "https://storage.googleapis.com"
+  bucket_name: "dpo-testing"
 
 # wandb configuration
 wandb:
