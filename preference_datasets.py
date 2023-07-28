@@ -390,10 +390,8 @@ def tokenize_batch_element(prompt: str, chosen: str, rejected: str, truncation_m
     rejected_tokens['input_ids'].append(tokenizer.eos_token_id)
     rejected_tokens['attention_mask'].append(1)
 
-    longer_response_length = max(len(chosen_tokens['input_ids']), len(rejected_tokens['input_ids']))
-
-    # if combined sequence is too long, truncate the prompt
-    if len(prompt_tokens['input_ids']) + longer_response_length > max_length:
+    # if prompt sequence is too long, truncate the prompt
+    if len(prompt_tokens['input_ids']) > max_length:
         if truncation_mode == 'keep_start':
             prompt_tokens = {k: v[:max_prompt_length] for k, v in prompt_tokens.items()}
         elif truncation_mode == 'keep_end':
@@ -401,10 +399,11 @@ def tokenize_batch_element(prompt: str, chosen: str, rejected: str, truncation_m
         else:
             raise ValueError(f'Unknown truncation mode: {truncation_mode}')
 
-    # if that's still too long, truncate the response
-    if len(prompt_tokens['input_ids']) + longer_response_length > max_length:
-        chosen_tokens = {k: v[:max_length - max_prompt_length] for k, v in chosen_tokens.items()}
-        rejected_tokens = {k: v[:max_length - max_prompt_length] for k, v in rejected_tokens.items()}
+    # if target sequence is too long, truncate that as well.
+    longer_response_length = max(len(chosen_tokens['input_ids']), len(rejected_tokens['input_ids']))
+    if longer_response_length > max_length:
+        chosen_tokens = {k: v[:max_length] for k, v in chosen_tokens.items()}
+        rejected_tokens = {k: v[:max_length] for k, v in rejected_tokens.items()}
 
     batch = {}
 
