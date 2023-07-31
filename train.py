@@ -104,6 +104,7 @@ def main(config: DictConfig):
         if config.loss.name == 'dpo':
             if config.reference_model_path:
                 ref_state_dict = torch.load(config.reference_model_path, map_location='cpu')
+                step, metrics = state_dict['step_idx'], state_dict['metrics']
                 reference_model.load_state_dict(ref_state_dict["state"])
             else:
                 reference_model.load_state_dict(state_dict['state'])
