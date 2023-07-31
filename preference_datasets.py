@@ -376,19 +376,19 @@ def tokenize_batch_element(prompt: str, chosen: str, rejected: str, truncation_m
          the sum of the length of the prompt and the chosen/rejected response, with -100 for the
          prompt tokens.
     """
-    chosen_tokens = tokenizer(chosen, add_special_tokens=False)
-    rejected_tokens = tokenizer(rejected, add_special_tokens=False)
-    prompt_tokens = tokenizer(prompt, add_special_tokens=False)
+    chosen_tokens = tokenizer(chosen, add_special_tokens=True)
+    rejected_tokens = tokenizer(rejected, add_special_tokens=True)
+    prompt_tokens = tokenizer(prompt, add_special_tokens=True)
 
-    assert tokenizer.eos_token_id not in prompt_tokens['input_ids'], f"Prompt contains EOS token: {prompt}"
-    assert tokenizer.eos_token_id not in chosen_tokens['input_ids'], f"Chosen response contains EOS token: {chosen}"
-    assert tokenizer.eos_token_id not in rejected_tokens['input_ids'], f"Rejected response contains EOS token: {rejected}"
+    # assert tokenizer.eos_token_id not in prompt_tokens['input_ids'], f"Prompt contains EOS token: {prompt}"
+    # assert tokenizer.eos_token_id not in chosen_tokens['input_ids'], f"Chosen response contains EOS token: {chosen}"
+    # assert tokenizer.eos_token_id not in rejected_tokens['input_ids'], f"Rejected response contains EOS token: {rejected}"
 
-    chosen_tokens['input_ids'].append(tokenizer.eos_token_id)
-    chosen_tokens['attention_mask'].append(1)
+    # chosen_tokens['input_ids'].append(tokenizer.eos_token_id)
+    # chosen_tokens['attention_mask'].append(1)
 
-    rejected_tokens['input_ids'].append(tokenizer.eos_token_id)
-    rejected_tokens['attention_mask'].append(1)
+    # rejected_tokens['input_ids'].append(tokenizer.eos_token_id)
+    # rejected_tokens['attention_mask'].append(1)
 
     # if prompt sequence is too long, truncate the prompt
     if len(prompt_tokens['input_ids']) > max_length:
