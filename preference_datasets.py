@@ -365,7 +365,7 @@ def get_collate_fn(tokenizer) -> Callable[[List[Dict]], Dict[str, Union[List, to
     return collate_fn
 
 
-def tokenize_batch_element(prompt: str, chosen: str, rejected: str, truncation_mode: str, tokenizer, max_length: int, max_prompt_length: int) -> Dict:
+def tokenize_batch_element(prompt: str, chosen: str, rejected: str, truncation_mode: str, tokenizer, max_length: int) -> Dict:
     """Tokenize a single batch element.
     
        At this stage, we don't convert to PyTorch tensors yet; we just handle the truncation
@@ -393,17 +393,21 @@ def tokenize_batch_element(prompt: str, chosen: str, rejected: str, truncation_m
     # if prompt sequence is too long, truncate the prompt
     if len(prompt_tokens['input_ids']) > max_length:
         if truncation_mode == 'keep_start':
-            prompt_tokens = {k: v[:max_prompt_length] for k, v in prompt_tokens.items()}
+            prompt_tokens = {k: v[:max_length] for k, v in prompt_tokens.items()}
         elif truncation_mode == 'keep_end':
-            prompt_tokens = {k: v[-max_prompt_length:] for k, v in prompt_tokens.items()}
+            prompt_tokens = {k: v[-max_length:] for k, v in prompt_tokens.items()}
         else:
             raise ValueError(f'Unknown truncation mode: {truncation_mode}')
 
-    # if target sequence is too long, truncate that as well.
+    # if target sequence is long, truncate that as well.
     longer_response_length = max(len(chosen_tokens['input_ids']), len(rejected_tokens['input_ids']))
     if longer_response_length > max_length:
-        chosen_tokens = {k: v[:max_length] for k, v in chosen_tokens.items()}
-        rejected_tokens = {k: v[:max_length] for k, v in rejected_tokens.items()}
+        if truncation_mode == 'keep_start':
+            chosen_tokens = {k: v[:max_length] for k, v in chosen_tokens.items()}
+            rejected_tokens = {k: v[:max_length] for k, v in rejected_tokens.items()}
+        else:
+            chosen_tokens = {k: v[-max_length:] for k, v in chosen_tokens.items()}
+            rejected_tokens = {k: v[-max_length:] for k, v in rejected_tokens.items()}
 
     batch = {}
 
@@ -428,7 +432,6 @@ def get_batch_iterator(names: List[str],
                        batch_size: int = 1,
                        shuffle: bool = True,
                        max_length: int = 512,
-                       max_prompt_length: int = 128,
                        sft_mode: bool = False,
                        n_epochs: Optional[int] = None,
                        n_examples: Optional[int] = None,
@@ -489,7 +492,7 @@ def get_batch_iterator(names: List[str],
             if done:
                 break
             if sft_mode:
-                batch_element = tokenize_batch_element(prompt, sft_target, sft_target, truncation_mode, tokenizer, max_length, max_prompt_length)
+                batch_element = tokenize_batch_element(prompt, sft_target, sft_target, truncation_mode, tokenizer, max_length)
                 batch_element = {k: v for k, v in batch_element.items() if 'rejected' not in k}
                 batch.append(batch_element)
                 example_idx += 1
@@ -505,7 +508,7 @@ def get_batch_iterator(names: List[str],
                 for p in pairs:
                     if done:
                         break
-                    batch_element = tokenize_batch_element(prompt, responses[p[0]], responses[p[1]], truncation_mode, tokenizer, max_length, max_prompt_length)
+                    batch_element = tokenize_batch_element(prompt, responses[p[0]], responses[p[1]], truncation_mode, tokenizer, max_length)
                     batch.append(batch_element)
                     example_idx += 1
                     if len(batch) == batch_size:
