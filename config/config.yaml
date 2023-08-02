@@ -62,11 +62,8 @@ gradient_accumulation_steps: 1
 # the maximum gradient norm to clip to
 max_grad_norm: 10.0
 
-# the maximum allowed length for an input (prompt + response)
+# the maximum allowed length for an input.
 max_length: 512
-
-# the maximum allowed length for a prompt
-max_prompt_length: 256
 
 # the number of epochs to train for; if null, must specify n_examples
 n_epochs: 1

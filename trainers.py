@@ -151,7 +151,6 @@ class BasicTrainer(object):
             tokenizer=self.tokenizer,
             shuffle=True,
             max_length=config.max_length,
-            max_prompt_length=config.max_prompt_length,
             sft_mode=config.loss.name == 'sft',
         )
 
