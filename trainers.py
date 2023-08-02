@@ -80,7 +80,7 @@ def dpo_loss(policy_chosen_logps: torch.FloatTensor,
     return losses, chosen_rewards, rejected_rewards
 
 
-def _get_batch_logps(logits: torch.FloatTensor, labels: torch.LongTensor, average_log_prob: bool = False, pad_token_id: int = -100) -> torch.FloatTensor:
+def _get_batch_logps(logits: torch.FloatTensor, labels: torch.LongTensor, average_log_prob: bool = False, decoder_start_token_id: int = -100, pad_token_id: int = -100) -> torch.FloatTensor:
     """Compute the log probabilities of the given labels under the given logits.
 
     Args:
@@ -95,10 +95,14 @@ def _get_batch_logps(logits: torch.FloatTensor, labels: torch.LongTensor, averag
 
     labels = labels[:, 1:].clone()
     logits = logits[:, :-1, :]
-    loss_mask = (labels != pad_token_id)
+
+    loss_mask_pad = (labels != pad_token_id)
+    # Just to be safe. This token is never really found within labels (which means chosen_token_ids in this case)
+    loss_mask_decoder = (labels != decoder_start_token_id)
+    loss_mask = torch.logical_and(loss_mask_pad, loss_mask_decoder)
 
     # dummy token; we'll ignore the losses on these tokens later
-    labels[labels == pad_token_id] = 0
+    labels[labels == decoder_start_token_id] = 0
 
     per_token_logps = torch.gather(logits.log_softmax(-1), dim=2, index=labels.unsqueeze(2)).squeeze(2)
 
@@ -187,10 +191,10 @@ class BasicTrainer(object):
            Concatenated forward pass is not really possible with T5 models, so we have to do 2 forward passes.
         """
         chosen_logits = model(batch['prompt_input_ids'], attention_mask=batch['prompt_attention_mask'], labels=batch['chosen_input_ids'], decoder_attention_mask=batch['chosen_attention_mask']).logits.to(torch.float32)
-        chosen_logps = _get_batch_logps(chosen_logits, batch['chosen_input_ids'], average_log_prob=False, pad_token_id=self.tokenizer.pad_token_id)
+        chosen_logps = _get_batch_logps(chosen_logits, batch['chosen_input_ids'], average_log_prob=False, decoder_start_token_id=self.policy.config.decoder_start_token_id, pad_token_id=self.tokenizer.pad_token_id)
 
         rejected_logits = model(batch['prompt_input_ids'], attention_mask=batch['prompt_attention_mask'], labels=batch['rejected_input_ids'], decoder_attention_mask=batch['rejected_attention_mask']).logits.to(torch.float32)
-        rejected_logps = _get_batch_logps(rejected_logits, batch['rejected_input_ids'], average_log_prob=False, pad_token_id=self.tokenizer.pad_token_id)
+        rejected_logps = _get_batch_logps(rejected_logits, batch['rejected_input_ids'], average_log_prob=False, decoder_start_token_id=self.policy.config.decoder_start_token_id, pad_token_id=self.tokenizer.pad_token_id)
 
         return chosen_logps, rejected_logps
 
