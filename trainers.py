@@ -91,8 +91,10 @@ def _get_batch_logps(logits: torch.FloatTensor, labels: torch.LongTensor, averag
     Returns:
         A tensor of shape (batch_size,) containing the average/sum log probabilities of the given labels under the given logits.
     """
+    # logits without the eos token
     assert logits.shape[:-1] == labels.shape
 
+    # labels without the space upfront
     labels = labels[:, 1:].clone()
     logits = logits[:, :-1, :]
 
@@ -102,6 +104,7 @@ def _get_batch_logps(logits: torch.FloatTensor, labels: torch.LongTensor, averag
     loss_mask = torch.logical_and(loss_mask_pad, loss_mask_decoder)
 
     # dummy token; we'll ignore the losses on these tokens later
+    labels[labels == pad_token_id] = 0
     labels[labels == decoder_start_token_id] = 0
 
     per_token_logps = torch.gather(logits.log_softmax(-1), dim=2, index=labels.unsqueeze(2)).squeeze(2)
