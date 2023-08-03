@@ -228,23 +228,32 @@ def get_oa(split: str, silent: bool = False, cache_dir: str = None) -> Dict[str,
           progress.update(1)
           fill_threads(reply_node, threads, conversation_extended, progress)
       else:  # row_node["role"] == "prompter":
+        # Treat replies of this row_node (which belong to assistant) which are either reviewed or not, but with rank = null as those with rank 0 (lowest rank).
+        for idx, reply_node in enumerate(row_node["replies"]):
+          if reply_node["rank"] is None or not reply_node["review_result"]:
+            row_node["replies"][idx]["deleted"] = True
+
+        # If there are no any reply nodes for this row_node, we can simply discontinue the subtree.
+        has_any_replies = False
+        for reply_node in row_node["replies"]:
+          has_any_replies = not reply_node["deleted"]
+          if has_any_replies:
+            break
+        if not has_any_replies:
+          return
+
         # Do some pre-processing to the upcoming nodes since there can be prompter responses not being followed up with assistant responses.
         # In such cases we need to eliminate the last prompter response.
         for idx_asst, asst_reply_node in enumerate(row_node["replies"]):
           for idx_prmptr, prmptr_reply_node in enumerate(asst_reply_node["replies"]):
             found_real_asst_replies_prmptr = False
             for asst_reply_node_prmptr in prmptr_reply_node["replies"]:
-              found_real_asst_replies_prmptr = not asst_reply_node_prmptr["deleted"] and asst_reply_node_prmptr["review_result"] # Check for not being a spam
+              found_real_asst_replies_prmptr = not asst_reply_node_prmptr["deleted"] and asst_reply_node_prmptr["review_result"] and asst_reply_node_prmptr["rank"] is not None # Check for not being a spam and assure that it is ranked
               if found_real_asst_replies_prmptr:
                 break
-            
+
             if not found_real_asst_replies_prmptr:
-              prmptr_reply_node["deleted"] = True
-        
-        # Treat replies of this row_node (which belong to assistant) which are either reviewed or not, but with rank = null as those with rank 0 (lowest rank).
-        for idx, reply_node in enumerate(row_node["replies"]):
-          if reply_node["rank"] is None:
-            row_node["replies"][idx]["rank"] = 0
+              row_node["replies"][idx_asst]["deleted"] = True
 
         # Check if at least one of the replies here is the last.
         # Also checks if the best ranked response is a terminating response.
@@ -253,7 +262,12 @@ def get_oa(split: str, silent: bool = False, cache_dir: str = None) -> Dict[str,
           replies_has_ending = reply_node["review_result"] and has_no_reply_nodes(reply_node) # Check if non-spam as well.
           if replies_has_ending:
             break
-        
+
+        # Create a list of valid replies after filtering out deleted ones.
+        valid_replies = [reply_node for reply_node in row_node["replies"] if not reply_node["deleted"]]
+        # Update the progress for remaining nodes which won't be processed
+        progress.update(len(row_node["replies"]) - len(valid_replies))
+
         if replies_has_ending:
           # The case where there is an ending in the succeeding replies. We need to add all responses of the row_node here to reply_threads.
           conversation_extended_with_next = f"{conversation_extended}\n\nAssistant: "
@@ -265,34 +279,32 @@ def get_oa(split: str, silent: bool = False, cache_dir: str = None) -> Dict[str,
 
           best_rank = -1
           best_rank_reply = ""
-          for i in range(len(row_node["replies"])):
-            progress.update(1)
-            threads[conversation_extended_with_next]["responses"].append(row_node["replies"][i]["text"])
+          for i in range(len(valid_replies)):
+            threads[conversation_extended_with_next]["responses"].append(valid_replies[i]["text"])
 
-            if row_node["replies"][i]["rank"] > best_rank:
-              best_rank = row_node["replies"][i]["rank"]
-              best_rank_reply = row_node["replies"][i]["text"]
+            if valid_replies[i]["rank"] > best_rank:
+              best_rank = valid_replies[i]["rank"]
+              best_rank_reply = valid_replies[i]["text"]
 
-            for j in range(i + 1, len(row_node["replies"])):
-              threads[conversation_extended_with_next]["pairs"].append((i, j) if row_node["replies"][i]["rank"] > row_node["replies"][j]["rank"] else (j, i))
-          
+            for j in range(i + 1, len(valid_replies)):
+              threads[conversation_extended_with_next]["pairs"].append((i, j) if valid_replies[i]["rank"] > valid_replies[j]["rank"] else (j, i))
+
           # If there's only one response, add a garbage response to the list of replies.
-          if len(row_node["replies"]) == 1:
+          if len(valid_replies) == 1:
             threads[conversation_extended_with_next]["responses"].append(get_low_quality_response(conversation_extended))
             threads[conversation_extended_with_next]["pairs"].append((0, 1))
 
           threads[conversation_extended_with_next]["sft_target"] = best_rank_reply
-        
+
         # If the above additions were due to best ranked response termination, we do not proceed any further down the thread.
         # Otherwise, we proceed.
         # if not highest_rank_reply_is_end:
-        for reply_node in row_node["replies"]:
-          progress.update(1)
-          if not has_no_reply_nodes(reply_node) and reply_node["review_result"]:
-            # We proceed with all the replies that has further replies which also satisfies the other conditions above (1. Non-spam)
-            fill_threads(reply_node, threads, conversation_extended, progress)
-    else:
-      progress.update(1)
+        unprocessed_reply_nodes = [reply_node for reply_node in valid_replies if not has_no_reply_nodes(reply_node)]
+        for reply_node in unprocessed_reply_nodes:
+          fill_threads(reply_node, threads, conversation_extended, progress)
+        
+    # Progress update for current node
+    progress.update(1)
 
   print(f'Loading OA dataset ({split} split) from Huggingface...')
   dataset = datasets.load_dataset("OpenAssistant/oasst1", split=split, cache_dir=cache_dir)
