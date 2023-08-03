@@ -157,6 +157,11 @@ class BasicTrainer(object):
         self.policy = policy
         self.reference_model = reference_model
 
+        # If required, freeze the encoder
+        if config.freeze_encoder:
+            for param in self.policy.encoder.parameters():
+                param.requires_grad = False
+
         self.start_step = start_step
 
         self.train_iterator = get_batch_iterator(**data_iterator_kwargs, split='train', n_epochs=config.n_epochs, n_examples=config.n_examples, d_examples=None if start_step == 0 else start_step, batch_size=config.batch_size, silent=rank != 0, cache_dir=get_local_dir(config.local_dirs))

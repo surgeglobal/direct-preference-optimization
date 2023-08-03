@@ -92,6 +92,9 @@ optimizer_path: null
 # Scheduler Loading from Disk
 scheduler_path: null
 
+# Whether or not to freeze the encoder
+freeze_encoder: true
+
 # A strategy to save storage after reading checkpoints
 clean_chkpt_after_load: false
 
