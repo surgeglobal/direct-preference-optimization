@@ -159,8 +159,9 @@ class BasicTrainer(object):
 
         # If required, freeze the encoder
         if config.freeze_encoder:
-            for param in self.policy.encoder.parameters():
-                param.requires_grad = False
+            for layer in self.policy.get_encoder().layers:
+                for param in layer.parameters():
+                    param.requires_grad = False
 
         self.start_step = start_step
 
