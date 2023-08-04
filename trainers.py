@@ -104,6 +104,7 @@ def _get_batch_logps(logits: torch.FloatTensor, labels: torch.LongTensor, averag
     # loss_mask = torch.logical_and(loss_mask_pad, loss_mask_decoder)
 
     # dummy token; we'll ignore the losses on these tokens later
+    labels = labels.clone()
     labels[labels == pad_token_id] = 0
     # labels[labels == decoder_start_token_id] = 0
 
