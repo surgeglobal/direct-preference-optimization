@@ -95,10 +95,10 @@ def _get_batch_logps(logits: torch.FloatTensor, labels: torch.LongTensor, averag
     assert logits.shape[:-1] == labels.shape
 
     # labels without the space upfront
-    # labels = labels[:, 1:].clone()
-    # logits = logits[:, :-1, :]
+    labels = labels[:, 1:].clone()
+    logits = logits[:, :-1, :]
 
-    loss_mask = (labels != pad_token_id)
+    loss_mask = (labels != -100)
     # Just to be safe. This token is never really found within labels (which means chosen_token_ids in this case)
     # loss_mask_decoder = (labels != decoder_start_token_id)
     # loss_mask = torch.logical_and(loss_mask_pad, loss_mask_decoder)
