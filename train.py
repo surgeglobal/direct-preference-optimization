@@ -76,6 +76,7 @@ def main(config: DictConfig):
     print('building policy')
     model_kwargs = {'device_map': 'balanced'} if config.trainer == 'BasicTrainer' else {}
     if config.quantization == "4":
+        print("applying quantization...")
         model_kwargs["quantization_config"] = transformers.BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_quant_type="nf4",
@@ -84,7 +85,6 @@ def main(config: DictConfig):
         )
     policy_dtype = getattr(torch, config.model.policy_dtype)
     policy = transformers.AutoModelForCausalLM.from_pretrained(
-        config.model.name_or_path, cache_dir=get_local_dir(config.local_dirs), low_cpu_mem_usage=True, torch_dtype=policy_dtype, trust_remote_code=True, **model_kwargs) if not config.model.name_or_path.startswith("google/flan-t5") else transformers.T5ForConditionalGeneration.from_pretrained(
         config.model.name_or_path, cache_dir=get_local_dir(config.local_dirs), low_cpu_mem_usage=True, torch_dtype=policy_dtype, trust_remote_code=True, **model_kwargs)
     disable_dropout(policy)
 
@@ -92,8 +92,7 @@ def main(config: DictConfig):
         print('building reference model')
         reference_model_dtype = getattr(torch, config.model.reference_dtype)
         reference_model = transformers.AutoModelForCausalLM.from_pretrained(
-            config.model.name_or_path, cache_dir=get_local_dir(config.local_dirs), low_cpu_mem_usage=True, torch_dtype=reference_model_dtype, trust_remote_code=True, **model_kwargs) if not config.model.name_or_path.startswith("google/flan-t5") else transformers.T5ForConditionalGeneration.from_pretrained(
-        config.model.name_or_path, cache_dir=get_local_dir(config.local_dirs), low_cpu_mem_usage=True, torch_dtype=policy_dtype, trust_remote_code=True, **model_kwargs)
+            config.model.name_or_path, cache_dir=get_local_dir(config.local_dirs), low_cpu_mem_usage=True, torch_dtype=reference_model_dtype, trust_remote_code=True, **model_kwargs)
         disable_dropout(reference_model)
     else:
         reference_model = None
