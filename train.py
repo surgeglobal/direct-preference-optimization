@@ -75,7 +75,7 @@ def main(config: DictConfig):
     os.environ['XDG_CACHE_HOME'] = get_local_dir(config.local_dirs)
     print('building policy')
     model_kwargs = {'device_map': 'balanced'} if config.trainer == 'BasicTrainer' else {}
-    if config.quantization == "4":
+    if config.quantization == 4:
         print("applying quantization...")
         model_kwargs["quantization_config"] = transformers.BitsAndBytesConfig(
             load_in_4bit=True,

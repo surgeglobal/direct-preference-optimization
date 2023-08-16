@@ -81,7 +81,7 @@ n_eval_examples: 256
 trainer: BasicTrainer
 
 # Whether or not to use quantization
-quantization: "None"
+quantization: 0
 
 # The optimizer to use; we use RMSprop because it works about as well as Adam and is more memory-efficient
 optimizer: RMSprop
