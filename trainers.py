@@ -294,7 +294,7 @@ class BasicTrainer(object):
 
         for batch in self.train_iterator:
             #### BEGIN EVALUATION ####
-            if self.example_counter % self.config.eval_every == 0 and (self.example_counter > 0 or self.config.do_first_eval):
+            if self.example_counter % self.config.eval_every == 0 and self.start_step == 0 and (self.example_counter > 0 or self.config.do_first_eval):
                 rank0_print(f'Running evaluation after {self.example_counter} train examples')
                 self.policy.eval()
 
