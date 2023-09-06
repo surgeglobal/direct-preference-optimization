@@ -162,7 +162,7 @@ class BasicTrainer(object):
 
         tokenizer_name_or_path = config.model.tokenizer_name_or_path or config.model.name_or_path
         rank0_print(f'Loading tokenizer {tokenizer_name_or_path}')
-        self.tokenizer = transformers.AutoTokenizer.from_pretrained(tokenizer_name_or_path, cache_dir=get_local_dir(config.local_dirs)) if not config.model.name_or_path.startswith("google/flan-t5") else transformers.T5Tokenizer.from_pretrained(tokenizer_name_or_path, cache_dir=get_local_dir(config.local_dirs))
+        self.tokenizer = transformers.AutoTokenizer.from_pretrained(tokenizer_name_or_path, cache_dir=get_local_dir(config.local_dirs))
         if self.tokenizer.pad_token_id is None:
             self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
 
@@ -214,7 +214,7 @@ class BasicTrainer(object):
            We do this to avoid doing two forward passes, because it's faster for FSDP.
         """
         concatenated_batch = concatenated_inputs(batch)
-        all_logits = model(concatenated_batch['concatenated_input_ids'], attention_mask=concatenated_batch['concatenated_attention_mask']).logits.to(torch.float32)
+        all_logits = model(concatenated_batch['concatenated_input_ids'], attention_mask=concatenated_batch['concatenated_attention_mask'], labels=concatenated_batch['concatenated_labels'], decoder_attention_mask=concatenated_batch['concatenated_attention_mask']).logits.to(torch.float32)
         all_logps = _get_batch_logps(all_logits, concatenated_batch['concatenated_labels'], average_log_prob=False)
         chosen_logps = all_logps[:batch['chosen_input_ids'].shape[0]]
         rejected_logps = all_logps[batch['chosen_input_ids'].shape[0]:]
@@ -223,7 +223,6 @@ class BasicTrainer(object):
 
     def get_batch_metrics(self, batch: Dict[str, Union[List, torch.LongTensor]], loss_config: DictConfig, train=True):
         """Compute the SFT or DPO loss and other metrics for the given batch of inputs."""
-
         metrics = {}
         train_test = 'train' if train else 'eval'
 
