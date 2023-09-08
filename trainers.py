@@ -271,7 +271,7 @@ class BasicTrainer(object):
     def train(self):
         """Begin either SFT or DPO training, with periodic evaluation."""
         rank0_print(f'Using {self.config.optimizer} optimizer')
-        self.optimizer = getattr(optim.sophia, self.config.optimizer)(self.policy.parameters(), lr=self.config.lr, betas=tuple(self.config.sophia.betas), rho=self.config.rho, weight_decay=self.config.sophia.weight_decay)
+        self.optimizer = getattr(optim.sophia, self.config.optimizer)(self.policy.parameters(), lr=self.config.lr, betas=tuple(self.config.sophia.betas), rho=self.config.sophia.rho, weight_decay=self.config.sophia.weight_decay)
         if self.config.optimizer_path is not None:
             optimizer_state_dict = torch.load(self.config.optimizer_path)
             self.optimizer.load_state_dict(optimizer_state_dict["state"])
