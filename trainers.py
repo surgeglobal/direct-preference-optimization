@@ -278,10 +278,10 @@ class BasicTrainer(object):
 
             if self.config.clean_chkpt_after_load:
                 os.remove(self.config.optimizer_path)
-        self.scheduler = torch.optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda=lambda step: min(1.0, (step + 1) / (self.config.warmup_steps + 1)))
-        if self.config.scheduler_path is not None:
-            scheduler_state_dict = torch.load(self.config.scheduler_path)
-            self.scheduler.load_state_dict(scheduler_state_dict["state"])
+        # self.scheduler = torch.optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda=lambda step: min(1.0, (step + 1) / (self.config.warmup_steps + 1)))
+        # if self.config.scheduler_path is not None:
+        #     scheduler_state_dict = torch.load(self.config.scheduler_path)
+        #     self.scheduler.load_state_dict(scheduler_state_dict["state"])
 
             if self.config.clean_chkpt_after_load:
                 os.remove(self.config.scheduler_path)
@@ -379,7 +379,7 @@ class BasicTrainer(object):
 
             grad_norm = self.clip_gradient()
             self.optimizer.step(bs=bs)
-            self.scheduler.step()
+            # self.scheduler.step()
             self.optimizer.zero_grad(set_to_none=True)
 
             if self.batch_counter % self.config.sophia.k == self.config.sophia.k - 1:
