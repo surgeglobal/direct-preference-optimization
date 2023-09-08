@@ -383,7 +383,8 @@ class BasicTrainer(object):
             self.optimizer.zero_grad(set_to_none=True)
 
             if self.batch_counter % self.config.sophia.k == self.config.sophia.k - 1:
-                logits = self.policy(batch['chosen_input_ids'], attention_mask=batch['chosen_attention_mask']).logits.to(torch.float32)
+                global_batch = slice_and_move_batch_for_device(batch, self.rank, self.world_size, self.rank)
+                logits = self.policy(global_batch['chosen_input_ids'], attention_mask=global_batch['chosen_attention_mask']).logits.to(torch.float32)
                 samp_dist = torch.distributions.Categorical(logits=logits)
                 y_sample = samp_dist.sample()
                 loss_sampled = F.cross_entropy(logits.view(-1, logits.size(-1)), y_sample.view(-1), ignore_index=-1)
