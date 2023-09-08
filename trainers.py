@@ -18,7 +18,7 @@ from torch.distributed.fsdp.api import FullStateDictConfig, FullOptimStateDictCo
 from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 import tensor_parallel as tp
 
-from preference_datasets import get_batch_iterator
+from preference_datasets import get_batch_iterator, get_dataset
 from utils import (
     slice_and_move_batch_for_device,
     formatted_dict,
@@ -42,6 +42,8 @@ from typing import Optional, Dict, List, Union, Tuple
 
 import boto3
 import time
+
+import optim
 
 
 def dpo_loss(policy_chosen_logps: torch.FloatTensor,
@@ -186,6 +188,11 @@ class BasicTrainer(object):
         self.eval_batches = list(self.eval_iterator)
         rank0_print(f'Loaded {len(self.eval_batches)} eval batches of size {config.eval_batch_size}')
 
+        self.data_length = 0
+        for dataset_name in config.datasets:
+            dataset = get_dataset(dataset_name, "train", silent=True, cache_dir=get_local_dir(config.local_dirs)).items()
+            self.data_length += len(dataset)
+
     def get_batch_samples(self, batch: Dict[str, torch.LongTensor]) -> Tuple[str, str]:
         """Generate samples from the policy (and reference model, if doing DPO training) for the given batch of inputs."""
 
@@ -223,7 +230,6 @@ class BasicTrainer(object):
 
     def get_batch_metrics(self, batch: Dict[str, Union[List, torch.LongTensor]], loss_config: DictConfig, train=True):
         """Compute the SFT or DPO loss and other metrics for the given batch of inputs."""
-
         metrics = {}
         train_test = 'train' if train else 'eval'
 
@@ -264,9 +270,8 @@ class BasicTrainer(object):
 
     def train(self):
         """Begin either SFT or DPO training, with periodic evaluation."""
-
         rank0_print(f'Using {self.config.optimizer} optimizer')
-        self.optimizer = getattr(torch.optim, self.config.optimizer)(self.policy.parameters(), lr=self.config.lr)
+        self.optimizer = getattr(optim.sophia, self.config.optimizer)(self.policy.parameters(), lr=self.config.lr, betas=tuple(self.config.sophia.betas), rho=self.config.rho, weight_decay=self.config.sophia.weight_decay)
         if self.config.optimizer_path is not None:
             optimizer_state_dict = torch.load(self.config.optimizer_path)
             self.optimizer.load_state_dict(optimizer_state_dict["state"])
@@ -291,6 +296,10 @@ class BasicTrainer(object):
         self.example_counter = self.start_step
         self.batch_counter = 0
         last_log = None
+
+        # Sophia Optimizer Stuff
+        bs = self.data_length * self.config.max_length
+        iters_count = 0
 
         for batch in self.train_iterator:
             #### BEGIN EVALUATION ####
@@ -369,9 +378,19 @@ class BasicTrainer(object):
                     batch_metrics[k].extend(v)
 
             grad_norm = self.clip_gradient()
-            self.optimizer.step()
+            self.optimizer.step(bs=bs)
             self.scheduler.step()
-            self.optimizer.zero_grad()
+            self.optimizer.zero_grad(set_to_none=True)
+
+            if self.batch_counter % self.config.sophia.k == self.config.sophia.k - 1:
+                logits = self.policy(batch['chosen_input_ids'], attention_mask=batch['chosen_attention_mask']).logits.to(torch.float32)
+                samp_dist = torch.distributions.Categorical(logits=logits)
+                y_sample = samp_dist.sample()
+                loss_sampled = F.cross_entropy(logits.view(-1, logits.size(-1)), y_sample.view(-1), ignore_index=-1)
+                loss_sampled.backward()
+                self.optimizer.update_hessian()
+                self.optimizer.zero_grad(set_to_none=True)
+                self.policy.zero_grad()
 
             step_time = time.time() - start_time
             examples_per_second = self.config.batch_size / step_time
