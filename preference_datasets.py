@@ -184,7 +184,7 @@ def get_lamini_lm(split: str, silent: bool = False, cache_dir: str = None) -> Di
     print('done')
 
     def format_prompt_and_response(row):
-        prompt = f"Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\n### Instruction:\n{row['instruction']}\n\n### Response:"
+        prompt = f"### System:\nBelow is an instruction that describes a task. Write a response that appropriately completes the request.\n\n### Instruction:\n{row['instruction']}\n\n### Response:"
         chosen_response = row["response"]
         rejected_response = ""
 
