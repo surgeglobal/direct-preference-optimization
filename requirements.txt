@@ -12,3 +12,4 @@ tensor-parallel==1.2.4
 bitsandbytes==0.39.1
 accelerate==0.21.0
 boto3
+sentencepiece
