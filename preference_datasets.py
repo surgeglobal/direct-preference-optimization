@@ -180,7 +180,7 @@ def get_lamini_lm(split: str, silent: bool = False, cache_dir: str = None) -> Di
     """
     print(f'Loading sachith-surge/LaMini-LM dataset ({split} split) from Huggingface...')
     dataset = datasets.load_dataset('sachith-surge/LaMini-LM', cache_dir=cache_dir)
-    dataset = dataset.train_test_split(test_size=0.2)[split]
+    dataset = dataset["train"].train_test_split(test_size=0.2)[split]
     print('done')
 
     def format_prompt_and_response(row):
@@ -192,6 +192,50 @@ def get_lamini_lm(split: str, silent: bool = False, cache_dir: str = None) -> Di
 
     data = defaultdict(lambda: defaultdict(list))
     for row in tqdm.tqdm(dataset, desc='Processing sachith-surge/LaMini-LM', disable=silent):
+        if row["gpt4_status"] == "Accept":
+            prompt, chosen, rejected = format_prompt_and_response(row)
+
+            responses = [chosen, rejected]
+            n_responses = 2
+            data[prompt]['pairs'].append((n_responses, n_responses + 1))
+            data[prompt]['responses'].extend(responses)
+            data[prompt]['sft_target'] = chosen
+
+    return data
+
+
+def get_orca(split: str, silent: bool = False, cache_dir: str = None) -> Dict[
+    str, Dict[str, Union[List[Tuple[int, int]], List[str], str]]]:
+    """Load the LaMini-LM dataset by sachith-surge from Huggingface and convert it to the necessary format.
+
+       The dataset is converted to a dictionary with the following structure:
+       {
+           'prompt1': {
+               'responses': List[str],
+               'pairs': List[Tuple[int, int]],
+               'sft_target': str
+           },
+           'prompt2': {
+               ...
+           },
+       }
+
+       For this dataset, the sft_target is just the chosen response.
+    """
+    print(f'Loading sachith-surge/orca dataset ({split} split) from Huggingface...')
+    dataset = datasets.load_dataset('sachith-surge/orca', cache_dir=cache_dir)
+    dataset = dataset["train"].train_test_split(test_size=0.2)[split]
+    print('done')
+
+    def format_prompt_and_response(row):
+        prompt = f"### System:\n{row['system_message']}\n\n### Instruction:\n{row['inputs']}\n\n### Response:"
+        chosen_response = row["explained_targets"]
+        rejected_response = ""
+
+        return prompt, chosen_response, rejected_response
+
+    data = defaultdict(lambda: defaultdict(list))
+    for row in tqdm.tqdm(dataset, desc='Processing sachith-surge/orca', disable=silent):
         if row["gpt4_status"] == "Accept":
             prompt, chosen, rejected = format_prompt_and_response(row)
 
@@ -367,6 +411,8 @@ def get_dataset(name: str, split: str, silent: bool = False, cache_dir: str = No
         data = get_hh(split, silent=silent, cache_dir=cache_dir)
     elif name == 'lamini-lm':
         data = get_lamini_lm(split, silent=silent, cache_dir=cache_dir)
+    elif name == 'orca':
+        data = get_orca(split, silent=silent, cache_dir=cache_dir)
     elif name == 'se':
         data = get_se(split, silent=silent, cache_dir=cache_dir)
     elif name == 'oa':
