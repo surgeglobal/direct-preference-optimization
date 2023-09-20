@@ -180,7 +180,7 @@ def get_lamini_lm(split: str, silent: bool = False, cache_dir: str = None) -> Di
     """
     print(f'Loading sachith-surge/LaMini-LM dataset ({split} split) from Huggingface...')
     dataset = datasets.load_dataset('sachith-surge/LaMini-LM', cache_dir=cache_dir)
-    dataset = dataset.train_test_split(test_size=0.2)[split]
+    dataset = dataset["train"].train_test_split(test_size=0.2)[split]
     print('done')
 
     def format_prompt_and_response(row):
