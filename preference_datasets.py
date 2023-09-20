@@ -143,7 +143,7 @@ def get_hh(split: str, silent: bool = False, cache_dir: str = None) -> Dict[str,
     print('done')
 
     def split_prompt_and_responses(ex):
-        prompt = extract_anthropic_prompt(ex['chosen'])
+        prompt = extract_anthropic_prompt(ex['chosen']).replace("Human:", "Q:").replace("Assistant:", "A:")
         chosen_response = ex['chosen'][len(prompt):]
         rejected_response = ex['rejected'][len(prompt):]
         return prompt, chosen_response, rejected_response
