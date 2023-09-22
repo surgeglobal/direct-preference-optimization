@@ -44,7 +44,7 @@ def strip_html_tags(html_string):
 
 
 def format_conversation_prompt_as_instruction(prompt: str):
-    return f"### System:\nContinue the following conversation provided as context with a single turn only.\n\n### Context:\n{prompt}\n\n### Response:\n"
+    return f"### System:\nContinue the following conversation with turns between a human and an assistant provided as context with a single assistant turn only.\n\n### Context:\n{prompt}\n\n### Response:\n"
 
 
 def get_se(split, silent=False, cache_dir: str = None) -> Dict[
@@ -197,7 +197,7 @@ def get_lamini_lm(split: str, silent: bool = False, cache_dir: str = None) -> Di
     print('done')
 
     def format_prompt_and_response(row):
-        prompt = f"### System:\nBelow is an instruction that describes a task. Write a response that appropriately completes the request.\n\n### Instruction:\n{row['instruction']}\n\n### Response:"
+        prompt = f"### System:\nContinue the following conversation with turns between a human and an assistant provided as context with a single assistant turn only.\n\n### Instruction:\n{row['instruction']}\n\n### Response:"
         chosen_response = row["response"]
         rejected_response = ""
 
@@ -372,7 +372,7 @@ def get_oa(split: str, silent: bool = False, cache_dir: str = None) -> Dict[
                 if replies_has_ending:
                     # The case where there is an ending in the succeeding replies. We need to add all responses of the row_node here to reply_threads.
                     conversation_extended_with_next = f"{conversation_extended}\n\nAssistant: "
-                    instruction_template_conversation = f"### System:\nContinue the following conversation provided as context with a single turn only.\n\n### Context:\n{conversation_extended_with_next}\n\n### Response:\n"
+                    instruction_template_conversation = f"### System:\nContinue the following conversation with turns between a human and an assistant provided as context with a single assistant turn only.\n\n### Context:\n{conversation_extended_with_next}\n\n### Response:\n"
                     threads[instruction_template_conversation] = {
                         "responses": [],
                         "pairs": [],
@@ -529,7 +529,7 @@ def get_oa_guanaco(split: str, silent: bool = False, cache_dir: str = None) -> D
                 if is_best_reply_ends:
                     # The case where there is an ending in the succeeding replies. We need to add all responses of the row_node here to reply_threads.
                     conversation_extended_with_next = f"{conversation_extended}\n\nAssistant: "
-                    instruction_template_conversation = f"### System:\nContinue the following conversation provided as context with a single turn only.\n\n### Context:\n{conversation_extended_with_next}\n\n### Response:\n"
+                    instruction_template_conversation = f"### System:\nContinue the following conversation with turns between a human and an assistant provided as context with a single assistant turn only.\n\n### Context:\n{conversation_extended_with_next}\n\n### Response:\n"
                     threads[instruction_template_conversation] = {
                         "responses": [],
                         "pairs": [],
