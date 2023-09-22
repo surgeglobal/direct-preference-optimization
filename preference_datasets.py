@@ -255,7 +255,7 @@ def get_orca(split: str, silent: bool = False, cache_dir: str = None) -> Dict[
 
 
 def oa_apply_filters(dataset: datasets.Dataset):
-    dataset = dataset.filter(lambda row: row["lang"] == "en")
+    # dataset = dataset.filter(lambda row: row["lang"] == "en")
 
     return dataset
 
