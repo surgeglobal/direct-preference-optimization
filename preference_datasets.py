@@ -365,7 +365,8 @@ def get_oa(split: str, silent: bool = False, cache_dir: str = None) -> Dict[
                 if replies_has_ending:
                     # The case where there is an ending in the succeeding replies. We need to add all responses of the row_node here to reply_threads.
                     conversation_extended_with_next = f"{conversation_extended}\n\nAssistant: "
-                    threads[conversation_extended_with_next] = {
+                    instruction_template_conversation = f"### System:\nContinue the following conversation provided as context with a single turn only.\n\n### Context:\n{conversation_extended_with_next}\n\n### Response:\n"
+                    threads[instruction_template_conversation] = {
                         "responses": [],
                         "pairs": [],
                         "sft_target": None
@@ -375,23 +376,23 @@ def get_oa(split: str, silent: bool = False, cache_dir: str = None) -> Dict[
                     best_rank_reply = ""
                     for i in range(len(row_node["replies"])):
                         progress.update(1)
-                        threads[conversation_extended_with_next]["responses"].append(row_node["replies"][i]["text"])
+                        threads[instruction_template_conversation]["responses"].append(row_node["replies"][i]["text"])
 
                         if row_node["replies"][i]["rank"] > best_rank:
                             best_rank = row_node["replies"][i]["rank"]
                             best_rank_reply = row_node["replies"][i]["text"]
 
                         for j in range(i + 1, len(row_node["replies"])):
-                            threads[conversation_extended_with_next]["pairs"].append(
+                            threads[instruction_template_conversation]["pairs"].append(
                                 (i, j) if row_node["replies"][i]["rank"] > row_node["replies"][j]["rank"] else (j, i))
 
                     # If there's only one response, add a garbage response to the list of replies.
                     if len(row_node["replies"]) == 1:
-                        threads[conversation_extended_with_next]["responses"].append(
+                        threads[instruction_template_conversation]["responses"].append(
                             oa_get_low_quality_response(conversation_extended))
-                        threads[conversation_extended_with_next]["pairs"].append((0, 1))
+                        threads[instruction_template_conversation]["pairs"].append((0, 1))
 
-                    threads[conversation_extended_with_next]["sft_target"] = best_rank_reply
+                    threads[instruction_template_conversation]["sft_target"] = best_rank_reply
 
                 # If the above additions were due to best ranked response termination, we do not proceed any further down the thread.
                 # Otherwise, we proceed.
@@ -521,7 +522,8 @@ def get_oa_guanaco(split: str, silent: bool = False, cache_dir: str = None) -> D
                 if is_best_reply_ends:
                     # The case where there is an ending in the succeeding replies. We need to add all responses of the row_node here to reply_threads.
                     conversation_extended_with_next = f"{conversation_extended}\n\nAssistant: "
-                    threads[conversation_extended_with_next] = {
+                    instruction_template_conversation = f"### System:\nContinue the following conversation provided as context with a single turn only.\n\n### Context:\n{conversation_extended_with_next}\n\n### Response:\n"
+                    threads[instruction_template_conversation] = {
                         "responses": [],
                         "pairs": [],
                         "sft_target": None
@@ -530,23 +532,23 @@ def get_oa_guanaco(split: str, silent: bool = False, cache_dir: str = None) -> D
                     best_rank = -1
                     best_rank_reply = ""
                     for i in range(len(valid_replies)):
-                        threads[conversation_extended_with_next]["responses"].append(valid_replies[i]["text"])
+                        threads[instruction_template_conversation]["responses"].append(valid_replies[i]["text"])
 
                         if valid_replies[i]["rank"] > best_rank:
                             best_rank = valid_replies[i]["rank"]
                             best_rank_reply = valid_replies[i]["text"]
 
                         for j in range(i + 1, len(valid_replies)):
-                            threads[conversation_extended_with_next]["pairs"].append(
+                            threads[instruction_template_conversation]["pairs"].append(
                                 (i, j) if valid_replies[i]["rank"] > valid_replies[j]["rank"] else (j, i))
 
                     # If there's only one response, add a garbage response to the list of replies.
                     if len(valid_replies) == 1:
-                        threads[conversation_extended_with_next]["responses"].append(
+                        threads[instruction_template_conversation]["responses"].append(
                             oa_get_low_quality_response(conversation_extended))
-                        threads[conversation_extended_with_next]["pairs"].append((0, 1))
+                        threads[instruction_template_conversation]["pairs"].append((0, 1))
 
-                    threads[conversation_extended_with_next]["sft_target"] = best_rank_reply
+                    threads[instruction_template_conversation]["sft_target"] = best_rank_reply
                 else:
                     # We only proceed down the highest ranked reply thread.
                     for reply in valid_replies:
