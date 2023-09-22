@@ -43,6 +43,10 @@ def strip_html_tags(html_string):
     return text
 
 
+def format_conversation_prompt_as_instruction(prompt: str):
+    return f"### System:\nContinue the following conversation provided as context with a single turn only.\n\n### Context:\n{prompt}\n\n### Response:\n"
+
+
 def get_se(split, silent=False, cache_dir: str = None) -> Dict[
     str, Dict[str, Union[List[Tuple[int, int]], List[str], str]]]:
     """Load the StackExchange dataset from Huggingface, and return a dict of prompts and responses. See get_hh for the format.
@@ -69,6 +73,7 @@ def get_se(split, silent=False, cache_dir: str = None) -> Dict[
     data = defaultdict(dict)
     for row in tqdm.tqdm(dataset, desc='Processing SE', disable=silent):
         prompt = '\n\nHuman: ' + row['question'] + '\n\nAssistant:'
+        prompt = format_conversation_prompt_as_instruction(prompt)
         responses = [' ' + a['text'] for a in row['answers']]
         scores = [a['pm_score'] for a in row['answers']]
 
@@ -98,6 +103,7 @@ def get_shp(split: str, silent: bool = False, cache_dir: str = None) -> Dict[
     data = defaultdict(lambda: defaultdict(list))
     for row in tqdm.tqdm(dataset, desc='Processing SHP', disable=silent):
         prompt = '\n\nHuman: ' + row['history'] + '\n\nAssistant:'
+        prompt = format_conversation_prompt_as_instruction(prompt)
         responses = [' ' + row['human_ref_A'], ' ' + row['human_ref_B']]
         scores = [row['score_A'], row['score_B']]
         if prompt in data:
@@ -157,6 +163,7 @@ def get_hh(split: str, silent: bool = False, cache_dir: str = None) -> Dict[
     data = defaultdict(lambda: defaultdict(list))
     for row in tqdm.tqdm(dataset, desc='Processing HH', disable=silent):
         prompt, chosen, rejected = split_prompt_and_responses(row)
+        prompt = format_conversation_prompt_as_instruction(prompt)
         responses = [chosen, rejected]
         n_responses = len(data[prompt]['responses'])
         data[prompt]['pairs'].append((n_responses, n_responses + 1))
