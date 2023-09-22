@@ -89,7 +89,6 @@ def main(config: DictConfig):
         config.model.name_or_path, cache_dir=get_local_dir(config.local_dirs), low_cpu_mem_usage=True,
         torch_dtype=policy_dtype, trust_remote_code=True, **model_kwargs)
     if config.model.is_peft:
-        config = PeftConfig.from_pretrained(config.model.peft_model_name)
         policy = PeftModel.from_pretrained(policy, config.model.peft_model_name)
     disable_dropout(policy)
 
@@ -99,7 +98,6 @@ def main(config: DictConfig):
         reference_model = transformers.AutoModelForCausalLM.from_pretrained(
             config.model.name_or_path, cache_dir=get_local_dir(config.local_dirs), low_cpu_mem_usage=True, torch_dtype=reference_model_dtype, trust_remote_code=True, **model_kwargs)
         if config.model.is_peft:
-            config = PeftConfig.from_pretrained(config.model.peft_model_name)
             reference_model = PeftModel.from_pretrained(reference_model, config.model.peft_model_name)
         disable_dropout(reference_model)
     else:
