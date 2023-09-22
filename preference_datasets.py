@@ -68,7 +68,7 @@ def get_se(split, silent=False, cache_dir: str = None) -> Dict[
 
     data = defaultdict(dict)
     for row in tqdm.tqdm(dataset, desc='Processing SE', disable=silent):
-        prompt = '\n\nHuman: ' + row['question'] + '\n\nAssistant:'
+        prompt = '\n\n### HUMAN:\n' + row['question'] + '\n\n### RESPONSE:\n'
         responses = [' ' + a['text'] for a in row['answers']]
         scores = [a['pm_score'] for a in row['answers']]
 
@@ -97,7 +97,7 @@ def get_shp(split: str, silent: bool = False, cache_dir: str = None) -> Dict[
 
     data = defaultdict(lambda: defaultdict(list))
     for row in tqdm.tqdm(dataset, desc='Processing SHP', disable=silent):
-        prompt = '\n\nHuman: ' + row['history'] + '\n\nAssistant:'
+        prompt = '\n\n### HUMAN:\n' + row['history'] + '\n\n### RESPONSE:\n'
         responses = [' ' + row['human_ref_A'], ' ' + row['human_ref_B']]
         scores = [row['score_A'], row['score_B']]
         if prompt in data:
@@ -149,7 +149,7 @@ def get_hh(split: str, silent: bool = False, cache_dir: str = None) -> Dict[
     print('done')
 
     def split_prompt_and_responses(ex):
-        prompt = extract_anthropic_prompt(ex['chosen'])
+        prompt = extract_anthropic_prompt(ex['chosen']).replace("Human:", "### HUMAN:\n").replace("Assistant:", "### RESPONSE:\n")
         chosen_response = ex['chosen'][len(prompt):]
         rejected_response = ex['rejected'][len(prompt):]
         return prompt, chosen_response, rejected_response
@@ -292,7 +292,7 @@ def oa_has_no_reply_nodes(row_node: dict):
 
 
 def oa_get_low_quality_response(conversation_so_far: str):
-    prompt = f"{conversation_so_far}\n\nAssistant: "
+    prompt = f"{conversation_so_far}\n\n### RESPONSE:\n"
     return ""
 
 
@@ -320,8 +320,8 @@ def get_oa(split: str, silent: bool = False, cache_dir: str = None) -> Dict[
     """
 
     def fill_threads(row_node: dict, threads: dict, conversation: str, progress):
-        role = "Human" if row_node["role"] == "prompter" else "Assistant"
-        row_message = f"{role}: {row_node['text']}"
+        role = "HUMAN" if row_node["role"] == "prompter" else "RESPONSE"
+        row_message = f"### {role}:\n{row_node['text']}"
         separator = "\n\n" if conversation != "" else ""
         conversation_extended = f"{conversation}{separator}{row_message}"
 
@@ -364,7 +364,7 @@ def get_oa(split: str, silent: bool = False, cache_dir: str = None) -> Dict[
 
                 if replies_has_ending:
                     # The case where there is an ending in the succeeding replies. We need to add all responses of the row_node here to reply_threads.
-                    conversation_extended_with_next = f"{conversation_extended}\n\nAssistant: "
+                    conversation_extended_with_next = f"{conversation_extended}\n\n### RESPONSE:\n"
                     threads[conversation_extended_with_next] = {
                         "responses": [],
                         "pairs": [],
@@ -468,8 +468,8 @@ def get_oa_guanaco(split: str, silent: bool = False, cache_dir: str = None) -> D
             return total
 
     def fill_threads(row_node: dict, threads: dict, conversation: str, progress):
-        role = "Human" if row_node["role"] == "prompter" else "Assistant"
-        row_message = f"{role}: {row_node['text']}"
+        role = "HUMAN" if row_node["role"] == "prompter" else "RESPONSE"
+        row_message = f"### {role}: {row_node['text']}"
         separator = "\n\n" if conversation != "" else ""
         conversation_extended = f"{conversation}{separator}{row_message}"
 
@@ -520,7 +520,7 @@ def get_oa_guanaco(split: str, silent: bool = False, cache_dir: str = None) -> D
 
                 if is_best_reply_ends:
                     # The case where there is an ending in the succeeding replies. We need to add all responses of the row_node here to reply_threads.
-                    conversation_extended_with_next = f"{conversation_extended}\n\nAssistant: "
+                    conversation_extended_with_next = f"{conversation_extended}\n\n### RESPONSE:\n"
                     threads[conversation_extended_with_next] = {
                         "responses": [],
                         "pairs": [],
