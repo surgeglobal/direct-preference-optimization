@@ -83,6 +83,9 @@ trainer: BasicTrainer
 # Whether or not to use quantization
 quantization: 0
 
+# Whether or not to quantize the reference model only
+quantization_reference: 0
+
 # The optimizer to use; we use RMSprop because it works about as well as Adam and is more memory-efficient
 optimizer: RMSprop
 

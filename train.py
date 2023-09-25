@@ -95,6 +95,14 @@ def main(config: DictConfig):
     if config.loss.name == 'dpo':
         print('building reference model')
         reference_model_dtype = getattr(torch, config.model.reference_dtype)
+        if config.quantization != 0 and config.quantization_reference == 4:
+            print("applying quantization...")
+            model_kwargs["quantization_config"] = transformers.BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_use_double_quant=True,
+                bnb_4bit_compute_dtype=torch.bfloat16
+            )
         reference_model = transformers.AutoModelForCausalLM.from_pretrained(
             config.model.name_or_path, cache_dir=get_local_dir(config.local_dirs), low_cpu_mem_usage=True, torch_dtype=reference_model_dtype, trust_remote_code=True, **model_kwargs)
         if config.model.is_peft:
