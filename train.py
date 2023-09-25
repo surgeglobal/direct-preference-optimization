@@ -89,7 +89,7 @@ def main(config: DictConfig):
         config.model.name_or_path, cache_dir=get_local_dir(config.local_dirs), low_cpu_mem_usage=True,
         torch_dtype=policy_dtype, trust_remote_code=True, **model_kwargs)
     if config.model.is_peft:
-        policy = PeftModel.from_pretrained(policy, config.model.peft_model_name)
+        policy = PeftModel.from_pretrained(policy, config.model.peft_model_name, is_trainable=True)
     disable_dropout(policy)
 
     if config.loss.name == 'dpo':
