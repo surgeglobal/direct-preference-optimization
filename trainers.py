@@ -1,3 +1,6 @@
+import shutil
+from pathlib import Path
+
 import torch
 torch.backends.cuda.matmul.allow_tf32 = True
 import torch.nn.functional as F
@@ -423,20 +426,42 @@ class BasicTrainer(object):
             self.s3_client.upload_file(output_path, self.config.s3.bucket_name, s3_file_path)
             rank0_print(f'checkpoint uploaded to {self.config.s3.bucket_name}/{s3_file_path}.')
             os.remove(output_path)
+
+    def write_peft_model(self, step: int, path: str):
+        if path is not None and path != '':
+            os.makedirs(path, exist_ok=True)
+            self.tokenizer.save_pretrained(path)
+            self.policy.save_pretrained(path)
+
+            if self.config.s3.enabled:
+                path_parent_dir = str(Path(path).parent.absolute())
+                shutil.make_archive(f"{path_parent_dir}/model-chkpt-{step}", "zip", path)
+
+                rank0_print(f"Uploading checkpoint {step} to S3")
+                self.s3_client.upload_file(f"{path_parent_dir}/model-chkpt-{step}.zip", self.config.s3.bucket_name, f"{self._s3_run_folder_path}/model-chkpt-{step}.zip")
+                rank0_print(f"Uploaded checkpoint {step} to S3")
+
+                os.remove(f"{path_parent_dir}/model-chkpt-{step}.zip")
+                shutil.rmtree(path)
+        else:
+            rank0_print('No save path!')
     
     def save(self, output_dir: Optional[str] = None, metrics: Optional[Dict] = None):
         """Save policy, optimizer, and scheduler state to disk."""
 
-        policy_state_dict = self.policy.state_dict()
-        self.write_state_dict(self.example_counter, policy_state_dict, metrics, 'policy.pt', output_dir)
-        del policy_state_dict
+        if self.config.model.is_peft:
+            self.write_peft_model(self.example_counter, output_dir)
+        else:
+            policy_state_dict = self.policy.state_dict()
+            self.write_state_dict(self.example_counter, policy_state_dict, metrics, 'policy.pt', output_dir)
+            del policy_state_dict
 
-        # optimizer_state_dict = self.optimizer.state_dict()
-        # self.write_state_dict(self.example_counter, optimizer_state_dict, metrics, 'optimizer.pt', output_dir)
-        # del optimizer_state_dict
+            # optimizer_state_dict = self.optimizer.state_dict()
+            # self.write_state_dict(self.example_counter, optimizer_state_dict, metrics, 'optimizer.pt', output_dir)
+            # del optimizer_state_dict
 
-        # scheduler_state_dict = self.scheduler.state_dict()
-        # self.write_state_dict(self.example_counter, scheduler_state_dict, metrics, 'scheduler.pt', output_dir)
+            # scheduler_state_dict = self.scheduler.state_dict()
+            # self.write_state_dict(self.example_counter, scheduler_state_dict, metrics, 'scheduler.pt', output_dir)
 
 
 class FSDPTrainer(BasicTrainer):
