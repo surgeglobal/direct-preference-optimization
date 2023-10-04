@@ -1,0 +1,8 @@
+name_or_path: sachith-surge/open-llama-v2-lamini-orca-evol-guanaco-qlora-checkpoint-merged
+tokenizer_name_or_path: null
+archive: null
+block_name: LlamaDecoderLayer
+
+policy_dtype: float32
+fsdp_policy_mp: null
+reference_dtype: float16

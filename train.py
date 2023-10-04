@@ -2,7 +2,7 @@ import torch
 torch.backends.cuda.matmul.allow_tf32 = True
 import torch.nn as nn
 import transformers
-from peft import PeftConfig, PeftModel
+from peft import PeftConfig, PeftModel, LoraConfig, get_peft_model, prepare_model_for_int8_training, TaskType
 from utils import get_local_dir, get_local_run_dir, disable_dropout, init_distributed
 import os
 import hydra
@@ -88,7 +88,19 @@ def main(config: DictConfig):
     policy = transformers.AutoModelForCausalLM.from_pretrained(
         config.model.name_or_path, cache_dir=get_local_dir(config.local_dirs), low_cpu_mem_usage=True,
         torch_dtype=policy_dtype, trust_remote_code=True, **model_kwargs)
-    if config.model.is_peft:
+    if config.lora.enabled:
+        lora_config = LoraConfig(
+            r=config.lora.r,
+            lora_alpha=config.lora.alpha,
+            target_modules=config.lora.target_modules,
+            lora_dropout=config.lora.dropout,
+            bias=config.lora.bias,
+            task_type=TaskType.CAUSAL_LM
+        )
+        policy = prepare_model_for_int8_training(policy)
+        policy = get_peft_model(policy, lora_config)
+        policy.print_trainable_parameters()
+    elif config.model.is_peft:
         policy = PeftModel.from_pretrained(policy, config.model.peft_model_name, is_trainable=True)
     disable_dropout(policy)
 
@@ -105,6 +117,7 @@ def main(config: DictConfig):
             )
         reference_model = transformers.AutoModelForCausalLM.from_pretrained(
             config.model.name_or_path, cache_dir=get_local_dir(config.local_dirs), low_cpu_mem_usage=True, torch_dtype=reference_model_dtype, trust_remote_code=True, **model_kwargs)
+        # We do not need lora config here, as reference_model is only used for inference with current values.
         if config.model.is_peft:
             reference_model = PeftModel.from_pretrained(reference_model, config.model.peft_model_name)
         disable_dropout(reference_model)
