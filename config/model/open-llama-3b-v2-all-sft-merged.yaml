@@ -2,6 +2,7 @@ name_or_path: sachith-surge/open-llama-v2-lamini-orca-evol-guanaco-qlora-checkpo
 tokenizer_name_or_path: null
 archive: null
 block_name: LlamaDecoderLayer
+is_peft: false
 
 policy_dtype: float32
 fsdp_policy_mp: null
