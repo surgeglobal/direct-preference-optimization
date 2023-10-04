@@ -449,7 +449,7 @@ class BasicTrainer(object):
     def save(self, output_dir: Optional[str] = None, metrics: Optional[Dict] = None):
         """Save policy, optimizer, and scheduler state to disk."""
 
-        if self.config.model.is_peft:
+        if self.config.lora.enabled or self.config.model.is_peft:
             self.write_peft_model(self.example_counter, output_dir)
         else:
             policy_state_dict = self.policy.state_dict()

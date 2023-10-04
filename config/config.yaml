@@ -54,6 +54,16 @@ local_run_dir: ${get_local_run_dir:${exp_name},${local_dirs}}
 # the learning rate
 lr: 5e-7
 
+# lora configuration
+lora:
+  enabled: false
+  r: 8
+  alpha: 16
+  target_modules:
+    - "query_key_value"
+  dropout: 0.05
+  bias: "none"
+
 # number of steps to accumulate over for each batch
 #   (e.g. if batch_size=4 and gradient_accumulation_steps=2, then we will
 #   accumulate gradients over 2 microbatches of size 2)
