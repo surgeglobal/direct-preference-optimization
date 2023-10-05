@@ -89,7 +89,7 @@ def main(config: DictConfig):
         config.model.name_or_path, cache_dir=get_local_dir(config.local_dirs), low_cpu_mem_usage=True,
         torch_dtype=policy_dtype, trust_remote_code=True, **model_kwargs)
     if config.model.peft.enabled:
-        policy = PeftModel.from_pretrained(policy, config.model.peft_model_name, is_trainable=config.model.trainable)
+        policy = PeftModel.from_pretrained(policy, config.model.peft.model_name, is_trainable=config.model.peft.trainable)
     if config.lora.enabled:
         lora_config = LoraConfig(
             r=config.lora.r,
@@ -119,7 +119,7 @@ def main(config: DictConfig):
             config.model.name_or_path, cache_dir=get_local_dir(config.local_dirs), low_cpu_mem_usage=True, torch_dtype=reference_model_dtype, trust_remote_code=True, **model_kwargs)
         # We do not need lora config here, as reference_model is only used for inference with current values.
         if config.model.peft.enabled:
-            reference_model = PeftModel.from_pretrained(reference_model, config.model.peft_model_name)
+            reference_model = PeftModel.from_pretrained(reference_model, config.model.peft.model_name)
         disable_dropout(reference_model)
     else:
         reference_model = None
