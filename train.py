@@ -92,7 +92,7 @@ def main(config: DictConfig):
         lora_config = LoraConfig(
             r=config.lora.r,
             lora_alpha=config.lora.alpha,
-            target_modules=config.lora.target_modules,
+            target_modules=list(config.lora.target_modules),
             lora_dropout=config.lora.dropout,
             bias=config.lora.bias,
             task_type=TaskType.CAUSAL_LM
