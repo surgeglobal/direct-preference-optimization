@@ -102,6 +102,8 @@ def main(config: DictConfig):
         policy.print_trainable_parameters()
     elif config.model.is_peft:
         policy = PeftModel.from_pretrained(policy, config.model.peft_model_name, is_trainable=True)
+    if config.model.peft.enabled:
+        policy = PeftModel.from_pretrained(policy, config.model.peft_model_name, is_trainable=config.model.trainable)
     disable_dropout(policy)
 
     if config.loss.name == 'dpo':
