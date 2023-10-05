@@ -1,7 +1,9 @@
 name_or_path: openlm-research/open_llama_3b_v2
 tokenizer_name_or_path: null
-is_peft: true
-peft_model_name: sachith-surge/open-llama-v2-lamini-orca-evol-guanaco-qlora-checkpoint
+peft:
+  enabled: true
+  model_name: sachith-surge/open-llama-v2-lamini-orca-evol-guanaco-qlora-checkpoint-merged
+  trainable: true
 archive: null
 block_name: LlamaDecoderLayer
 
