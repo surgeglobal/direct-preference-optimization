@@ -88,6 +88,8 @@ def main(config: DictConfig):
     policy = transformers.AutoModelForCausalLM.from_pretrained(
         config.model.name_or_path, cache_dir=get_local_dir(config.local_dirs), low_cpu_mem_usage=True,
         torch_dtype=policy_dtype, trust_remote_code=True, **model_kwargs)
+    if config.model.peft.enabled:
+        policy = PeftModel.from_pretrained(policy, config.model.peft_model_name, is_trainable=config.model.trainable)
     if config.lora.enabled:
         lora_config = LoraConfig(
             r=config.lora.r,
@@ -100,10 +102,6 @@ def main(config: DictConfig):
         policy = prepare_model_for_int8_training(policy)
         policy = get_peft_model(policy, lora_config)
         policy.print_trainable_parameters()
-    elif config.model.is_peft:
-        policy = PeftModel.from_pretrained(policy, config.model.peft_model_name, is_trainable=True)
-    if config.model.peft.enabled:
-        policy = PeftModel.from_pretrained(policy, config.model.peft_model_name, is_trainable=config.model.trainable)
     disable_dropout(policy)
 
     if config.loss.name == 'dpo':
@@ -120,7 +118,7 @@ def main(config: DictConfig):
         reference_model = transformers.AutoModelForCausalLM.from_pretrained(
             config.model.name_or_path, cache_dir=get_local_dir(config.local_dirs), low_cpu_mem_usage=True, torch_dtype=reference_model_dtype, trust_remote_code=True, **model_kwargs)
         # We do not need lora config here, as reference_model is only used for inference with current values.
-        if config.model.is_peft:
+        if config.model.peft.enabled:
             reference_model = PeftModel.from_pretrained(reference_model, config.model.peft_model_name)
         disable_dropout(reference_model)
     else:
@@ -128,7 +126,7 @@ def main(config: DictConfig):
 
     start_step = 0
 
-    if not config.model.is_peft and config.model.archive is not None:
+    if not config.model.peft.enabled and config.model.archive is not None:
         state_dict = torch.load(config.model.archive, map_location='cpu')
         step, metrics = state_dict['step_idx'], state_dict['metrics']
         print(f'loading pre-trained weights at step {step} from {config.model.archive} with metrics {json.dumps(metrics, indent=2)}')
