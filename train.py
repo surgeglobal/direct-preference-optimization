@@ -2,6 +2,7 @@ import torch
 torch.backends.cuda.matmul.allow_tf32 = True
 import torch.nn as nn
 import transformers
+from peft import PeftConfig, PeftModel
 from utils import get_local_dir, get_local_run_dir, disable_dropout, init_distributed
 import os
 import hydra
@@ -75,7 +76,8 @@ def main(config: DictConfig):
     os.environ['XDG_CACHE_HOME'] = get_local_dir(config.local_dirs)
     print('building policy')
     model_kwargs = {'device_map': 'balanced'} if config.trainer == 'BasicTrainer' else {}
-    if config.quantization == "4":
+    if config.quantization == 4:
+        print("applying quantization...")
         model_kwargs["quantization_config"] = transformers.BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_quant_type="nf4",
@@ -84,19 +86,23 @@ def main(config: DictConfig):
         )
     policy_dtype = getattr(torch, config.model.policy_dtype)
     policy = transformers.AutoModelForSeq2SeqLM.from_pretrained(config.model.name_or_path, cache_dir=get_local_dir(config.local_dirs), low_cpu_mem_usage=True, torch_dtype=policy_dtype, trust_remote_code=True, **model_kwargs)
+    if config.model.is_peft:
+        policy = PeftModel.from_pretrained(policy, config.model.peft_model_name)
     disable_dropout(policy)
 
     if config.loss.name == 'dpo':
         print('building reference model')
         reference_model_dtype = getattr(torch, config.model.reference_dtype)
         reference_model = transformers.AutoModelForSeq2SeqLM.from_pretrained(config.model.name_or_path, cache_dir=get_local_dir(config.local_dirs), low_cpu_mem_usage=True, torch_dtype=reference_model_dtype, trust_remote_code=True, **model_kwargs)
+        if config.model.is_peft:
+            reference_model = PeftModel.from_pretrained(reference_model, config.model.peft_model_name)
         disable_dropout(reference_model)
     else:
         reference_model = None
 
     start_step = 0
 
-    if config.model.archive is not None:
+    if not config.model.is_peft and config.model.archive is not None:
         state_dict = torch.load(config.model.archive, map_location='cpu')
         step, metrics = state_dict['step_idx'], state_dict['metrics']
         print(f'loading pre-trained weights at step {step} from {config.model.archive} with metrics {json.dumps(metrics, indent=2)}')
@@ -104,7 +110,6 @@ def main(config: DictConfig):
         if config.loss.name == 'dpo':
             if config.reference_model_path:
                 ref_state_dict = torch.load(config.reference_model_path, map_location='cpu')
-                step, metrics = ref_state_dict['step_idx'], ref_state_dict['metrics']
                 reference_model.load_state_dict(ref_state_dict["state"])
             else:
                 reference_model.load_state_dict(state_dict['state'])

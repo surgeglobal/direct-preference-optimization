@@ -279,7 +279,7 @@ class BasicTrainer(object):
 
         for batch in self.train_iterator:
             #### BEGIN EVALUATION ####
-            if self.example_counter % self.config.eval_every == 0 and (self.example_counter > 0 or self.config.do_first_eval):
+            if self.example_counter % self.config.eval_every == 0 and self.start_step == 0 and (self.example_counter > 0 or self.config.do_first_eval):
                 rank0_print(f'Running evaluation after {self.example_counter} train examples')
                 self.policy.eval()
 
@@ -333,9 +333,10 @@ class BasicTrainer(object):
                     if self.config.debug:
                         rank0_print('skipping save in debug mode')
                     else:
-                        output_dir = os.path.join(self.run_dir, f'step-{self.example_counter}')
-                        rank0_print(f'creating checkpoint to write to {output_dir}...')
-                        self.save(output_dir, mean_eval_metrics)
+                        if self.config.save_every == -1 or self.example_counter % self.config.save_every == 0:
+                            output_dir = os.path.join(self.run_dir, f'step-{self.example_counter}')
+                            rank0_print(f'creating checkpoint to write to {output_dir}...')
+                            self.save(output_dir, mean_eval_metrics)
             #### END EVALUATION ####
 
             #### BEGIN TRAINING ####
@@ -415,12 +416,12 @@ class BasicTrainer(object):
         self.write_state_dict(self.example_counter, policy_state_dict, metrics, 'policy.pt', output_dir)
         del policy_state_dict
 
-        optimizer_state_dict = self.optimizer.state_dict()
-        self.write_state_dict(self.example_counter, optimizer_state_dict, metrics, 'optimizer.pt', output_dir)
-        del optimizer_state_dict
+        # optimizer_state_dict = self.optimizer.state_dict()
+        # self.write_state_dict(self.example_counter, optimizer_state_dict, metrics, 'optimizer.pt', output_dir)
+        # del optimizer_state_dict
 
-        scheduler_state_dict = self.scheduler.state_dict()
-        self.write_state_dict(self.example_counter, scheduler_state_dict, metrics, 'scheduler.pt', output_dir)
+        # scheduler_state_dict = self.scheduler.state_dict()
+        # self.write_state_dict(self.example_counter, scheduler_state_dict, metrics, 'scheduler.pt', output_dir)
 
 
 class FSDPTrainer(BasicTrainer):

@@ -78,7 +78,7 @@ n_eval_examples: 256
 trainer: BasicTrainer
 
 # Whether or not to use quantization
-quantization: "None"
+quantization: 0
 
 # The optimizer to use; we use RMSprop because it works about as well as Adam and is more memory-efficient
 optimizer: RMSprop
@@ -106,6 +106,10 @@ activation_checkpointing: false
 
 # evaluate and save model every eval_every steps
 eval_every: 20_000
+
+# number of steps per each checkpoint save.
+# Must be an integer multiple of eval_every
+save_every: -1
 
 # prevent wandb from logging more than once per minimum_log_interval_secs
 minimum_log_interval_secs: 1.0
