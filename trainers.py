@@ -97,14 +97,12 @@ def _get_batch_logps(logits: torch.FloatTensor, labels: torch.LongTensor, averag
 
     # Pad the logits with tokenizer.pad_token_id
     if logits_padding > 0:
-        padding = torch.full((logits.size(0), logits_padding, logits.size(2)), tokenizer.pad_token_id)
-        padding.to(logits.device)
+        padding = torch.full((logits.size(0), logits_padding, logits.size(2)), tokenizer.pad_token_id, device=f"cuda:{logits.get_device()}")
         logits = torch.cat((logits, padding), dim=1)
 
     # Pad the labels with tokenizer.pad_token_id
     if labels_padding > 0:
-        padding = torch.full((labels.size(0), labels_padding), -100)
-        padding.to(labels.device)
+        padding = torch.full((labels.size(0), labels_padding), -100, device=f"cuda:{logits.get_device()}")
         labels = torch.cat((labels, padding), dim=1)
 
     assert logits.shape[:-1] == labels.shape
