@@ -292,7 +292,6 @@ def oa_has_no_reply_nodes(row_node: dict):
 
 
 def oa_get_low_quality_response(conversation_so_far: str):
-    prompt = f"{conversation_so_far}\n\n### RESPONSE:\n"
     return ""
 
 
@@ -468,9 +467,9 @@ def get_oa_guanaco(split: str, silent: bool = False, cache_dir: str = None) -> D
             return total
 
     def fill_threads(row_node: dict, threads: dict, conversation: str, progress):
-        role = "HUMAN" if row_node["role"] == "prompter" else "RESPONSE"
-        row_message = f"### {role}: {row_node['text']}"
-        separator = "\n\n" if conversation != "" else ""
+        role = "Human" if row_node["role"] == "prompter" else "Assistant"
+        row_message = f"{role}: {row_node['text']}"
+        separator = "\n" if conversation != "" else ""
         conversation_extended = f"{conversation}{separator}{row_message}"
 
         if not oa_has_no_reply_nodes(row_node):
@@ -520,7 +519,7 @@ def get_oa_guanaco(split: str, silent: bool = False, cache_dir: str = None) -> D
 
                 if is_best_reply_ends:
                     # The case where there is an ending in the succeeding replies. We need to add all responses of the row_node here to reply_threads.
-                    conversation_extended_with_next = f"{conversation_extended}\n\n### RESPONSE:\n"
+                    conversation_extended_with_next = f"Continue writing the following text.\n\n{conversation_extended}"
                     threads[conversation_extended_with_next] = {
                         "responses": [],
                         "pairs": [],
@@ -530,7 +529,7 @@ def get_oa_guanaco(split: str, silent: bool = False, cache_dir: str = None) -> D
                     best_rank = -1
                     best_rank_reply = ""
                     for i in range(len(valid_replies)):
-                        threads[conversation_extended_with_next]["responses"].append(valid_replies[i]["text"])
+                        threads[conversation_extended_with_next]["responses"].append(f"Assistant: {valid_replies[i]['text']}")
 
                         if valid_replies[i]["rank"] > best_rank:
                             best_rank = valid_replies[i]["rank"]
@@ -542,11 +541,10 @@ def get_oa_guanaco(split: str, silent: bool = False, cache_dir: str = None) -> D
 
                     # If there's only one response, add a garbage response to the list of replies.
                     if len(valid_replies) == 1:
-                        threads[conversation_extended_with_next]["responses"].append(
-                            oa_get_low_quality_response(conversation_extended))
+                        threads[conversation_extended_with_next]["responses"].append(f"Assistant: {oa_get_low_quality_response(conversation_extended)}")
                         threads[conversation_extended_with_next]["pairs"].append((0, 1))
 
-                    threads[conversation_extended_with_next]["sft_target"] = best_rank_reply
+                    threads[conversation_extended_with_next]["sft_target"] = f"Assistant: {best_rank_reply}"
                 else:
                     # We only proceed down the highest ranked reply thread.
                     for reply in valid_replies:
