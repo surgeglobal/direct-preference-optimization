@@ -43,7 +43,8 @@ def strip_html_tags(html_string):
     return text
 
 
-def get_se(split, silent=False, cache_dir: str = None) -> Dict[str, Dict[str, Union[List[Tuple[int, int]], List[str], str]]]:
+def get_se(split, silent=False, cache_dir: str = None) -> Dict[
+    str, Dict[str, Union[List[Tuple[int, int]], List[str], str]]]:
     """Load the StackExchange dataset from Huggingface, and return a dict of prompts and responses. See get_hh for the format.
     
        We strip the HTML tags from the responses (except for <code> tags), and we add necessary newlines.
@@ -67,7 +68,7 @@ def get_se(split, silent=False, cache_dir: str = None) -> Dict[str, Dict[str, Un
 
     data = defaultdict(dict)
     for row in tqdm.tqdm(dataset, desc='Processing SE', disable=silent):
-        prompt = '\n\nHuman: ' + row['question'] + '\n\nAssistant:'
+        prompt = '\n\n### HUMAN:\n' + row['question'] + '\n\n### RESPONSE:\n'
         responses = [' ' + a['text'] for a in row['answers']]
         scores = [a['pm_score'] for a in row['answers']]
 
@@ -82,7 +83,9 @@ def get_se(split, silent=False, cache_dir: str = None) -> Dict[str, Dict[str, Un
 
     return data
 
-def get_shp(split: str, silent: bool = False, cache_dir: str = None) -> Dict[str, Dict[str, Union[List[Tuple[int, int]], List[str], str]]]:
+
+def get_shp(split: str, silent: bool = False, cache_dir: str = None) -> Dict[
+    str, Dict[str, Union[List[Tuple[int, int]], List[str], str]]]:
     """Load the Stanford Human Preferences dataset from Huggingface and convert it to the necessary format. See hh for the format.
 
        We filter preference pairs to only keep pairs where the score ratio is at least 2.
@@ -94,7 +97,7 @@ def get_shp(split: str, silent: bool = False, cache_dir: str = None) -> Dict[str
 
     data = defaultdict(lambda: defaultdict(list))
     for row in tqdm.tqdm(dataset, desc='Processing SHP', disable=silent):
-        prompt = '\n\nHuman: ' + row['history'] + '\n\nAssistant:'
+        prompt = '\n\n### HUMAN:\n' + row['history'] + '\n\n### RESPONSE:\n'
         responses = [' ' + row['human_ref_A'], ' ' + row['human_ref_B']]
         scores = [row['score_A'], row['score_B']]
         if prompt in data:
@@ -106,18 +109,21 @@ def get_shp(split: str, silent: bool = False, cache_dir: str = None) -> Dict[str
             continue
 
         # according to https://huggingface.co/datasets/stanfordnlp/SHP
-        data[prompt]['pairs'].append((n_responses, n_responses + 1) if row['labels'] == 1 else (n_responses + 1, n_responses))
+        data[prompt]['pairs'].append(
+            (n_responses, n_responses + 1) if row['labels'] == 1 else (n_responses + 1, n_responses))
         data[prompt]['responses'].extend(responses)
         data[prompt]['scores'].extend(scores)
 
     for prompt in data:
-        data[prompt]['sft_target'] = max(data[prompt]['responses'], key=lambda x: data[prompt]['scores'][data[prompt]['responses'].index(x)])
+        data[prompt]['sft_target'] = max(data[prompt]['responses'],
+                                         key=lambda x: data[prompt]['scores'][data[prompt]['responses'].index(x)])
         del data[prompt]['scores']
 
     return data
 
 
-def get_hh(split: str, silent: bool = False, cache_dir: str = None) -> Dict[str, Dict[str, Union[List[Tuple[int, int]], List[str], str]]]:
+def get_hh(split: str, silent: bool = False, cache_dir: str = None) -> Dict[
+    str, Dict[str, Union[List[Tuple[int, int]], List[str], str]]]:
     """Load the Anthropic Helpful-Harmless dataset from Huggingface and convert it to the necessary format.
     
        The dataset is converted to a dictionary with the following structure:
@@ -143,7 +149,7 @@ def get_hh(split: str, silent: bool = False, cache_dir: str = None) -> Dict[str,
     print('done')
 
     def split_prompt_and_responses(ex):
-        prompt = extract_anthropic_prompt(ex['chosen']).replace("Human:", "Q:").replace("Assistant:", "A:")
+        prompt = extract_anthropic_prompt(ex['chosen']).replace("Human:", "### HUMAN:\n").replace("Assistant:", "### RESPONSE:\n")
         chosen_response = ex['chosen'][len(prompt):]
         rejected_response = ex['rejected'][len(prompt):]
         return prompt, chosen_response, rejected_response
@@ -159,159 +165,417 @@ def get_hh(split: str, silent: bool = False, cache_dir: str = None) -> Dict[str,
 
     return data
 
-def get_oa(split: str, silent: bool = False, cache_dir: str = None) -> Dict[str, Dict[str, Union[List[Tuple[int, int]], List[str], str]]]:
-  """Load the OpenAssistant OASST1 dataset from Huggingface and convert it to the necessary format.
 
-    The dataset is converted to a dictionary with the following structure:
-    {
-        'prompt1': {
-            'responses': List[str],
-            'pairs': List[Tuple[int, int]],
-            'sft_target': str
-        },
-        'prompt2': {
-            ...
-        },
-    }
+def get_lamini_lm(split: str, silent: bool = False, cache_dir: str = None) -> Dict[
+    str, Dict[str, Union[List[Tuple[int, int]], List[str], str]]]:
+    """Load the LaMini-LM dataset by sachith-surge from Huggingface and convert it to the necessary format.
 
-    Prompts should be structured as follows:
-      \n\nHuman: <prompt>\n\nAssistant:
-    Multiple turns are allowed, but the prompt should always start with \n\nHuman: and end with \n\nAssistant:.
+       The dataset is converted to a dictionary with the following structure:
+       {
+           'prompt1': {
+               'responses': List[str],
+               'pairs': List[Tuple[int, int]],
+               'sft_target': str
+           },
+           'prompt2': {
+               ...
+           },
+       }
 
-    For this dataset, the sft_target is just the chosen response.
-  """
+       For this dataset, the sft_target is just the chosen response.
+    """
+    print(f'Loading sachith-surge/LaMini-LM dataset ({split} split) from Huggingface...')
+    dataset = datasets.load_dataset('sachith-surge/LaMini-LM', cache_dir=cache_dir)
+    dataset = dataset["train"].train_test_split(test_size=0.2)[split]
+    print('done')
 
-  def get_conversations_for_node(dataset: datasets.Dataset, row_node: dict, search_idx: int, progress):
+    def format_prompt_and_response(row):
+        prompt = f"### System:\nBelow is an instruction that describes a task. Write a response that appropriately completes the request.\n\n### Instruction:\n{row['instruction']}\n\n### Response:"
+        chosen_response = row["response"]
+        rejected_response = ""
+
+        return prompt, chosen_response, rejected_response
+
+    data = defaultdict(lambda: defaultdict(list))
+    for row in tqdm.tqdm(dataset, desc='Processing sachith-surge/LaMini-LM', disable=silent):
+        if row["gpt4_status"] == "Accept":
+            prompt, chosen, rejected = format_prompt_and_response(row)
+
+            responses = [chosen, rejected]
+            n_responses = 2
+            data[prompt]['pairs'].append((n_responses, n_responses + 1))
+            data[prompt]['responses'].extend(responses)
+            data[prompt]['sft_target'] = chosen
+
+    return data
+
+
+def get_orca(split: str, silent: bool = False, cache_dir: str = None) -> Dict[
+    str, Dict[str, Union[List[Tuple[int, int]], List[str], str]]]:
+    """Load the LaMini-LM dataset by sachith-surge from Huggingface and convert it to the necessary format.
+
+       The dataset is converted to a dictionary with the following structure:
+       {
+           'prompt1': {
+               'responses': List[str],
+               'pairs': List[Tuple[int, int]],
+               'sft_target': str
+           },
+           'prompt2': {
+               ...
+           },
+       }
+
+       For this dataset, the sft_target is just the chosen response.
+    """
+    print(f'Loading sachith-surge/orca dataset ({split} split) from Huggingface...')
+    dataset = datasets.load_dataset('sachith-surge/orca', cache_dir=cache_dir)
+    dataset = dataset["train"].train_test_split(test_size=0.2)[split]
+    print('done')
+
+    def format_prompt_and_response(row):
+        prompt = f"### System:\n{row['system_message']}\n\n### Instruction:\n{row['inputs']}\n\n### Response:"
+        chosen_response = row["explained_targets"]
+        rejected_response = ""
+
+        return prompt, chosen_response, rejected_response
+
+    data = defaultdict(lambda: defaultdict(list))
+    for row in tqdm.tqdm(dataset, desc='Processing sachith-surge/orca', disable=silent):
+        if row["gpt4_status"] == "Accept":
+            prompt, chosen, rejected = format_prompt_and_response(row)
+
+            responses = [chosen, rejected]
+            n_responses = 2
+            data[prompt]['pairs'].append((n_responses, n_responses + 1))
+            data[prompt]['responses'].extend(responses)
+            data[prompt]['sft_target'] = chosen
+
+    return data
+
+
+def oa_apply_filters(dataset: datasets.Dataset):
+    # dataset = dataset.filter(lambda row: row["lang"] == "en")
+
+    return dataset
+
+
+def oa_get_conversations_for_node(dataset: datasets.Dataset, row_node: dict, search_idx: int, progress):
     while search_idx < len(dataset):
-      candidate_child_row = dataset[search_idx]
-      if "parent_id" not in candidate_child_row or candidate_child_row["parent_id"] is None:
-        candidate_child_row["parent_id"] = "root_node"
+        candidate_child_row = dataset[search_idx]
+        if "parent_id" not in candidate_child_row or candidate_child_row["parent_id"] is None:
+            candidate_child_row["parent_id"] = "root_node"
 
-      if candidate_child_row["parent_id"] == row_node["message_id"]:
-        progress.update(1)
+        if candidate_child_row["parent_id"] == row_node["message_id"]:
+            progress.update(1)
 
-        child_row_node = {
-            **candidate_child_row,
-            "replies": []
-        }
-        search_idx = get_conversations_for_node(dataset, child_row_node, search_idx + 1, progress)
-        row_node["replies"].append(child_row_node)
-      else:
-        break
+            child_row_node = {
+                **candidate_child_row,
+                "replies": []
+            }
+            search_idx = oa_get_conversations_for_node(dataset, child_row_node, search_idx + 1, progress)
+            row_node["replies"].append(child_row_node)
+        else:
+            break
 
     return search_idx
-  
-  def has_no_reply_nodes(row_node: dict):
+
+
+def oa_has_no_reply_nodes(row_node: dict):
     all_deleted = True
     for reply_node in row_node["replies"]:
-      all_deleted = all_deleted and reply_node["deleted"]
-      if not all_deleted:
-        break
-    
-    return len(row_node["replies"]) == 0 or all_deleted
-  
-  def get_low_quality_response(conversation_so_far: str):
-    prompt = f"{conversation_so_far}\n\nAssistant: "
-    return ""
-  
-  def fill_threads(row_node: dict, threads: dict, conversation: str, progress):
-    role = "Human" if row_node["role"] == "prompter" else "Assistant"
-    row_message = f"{role}: {row_node['text']}"
-    separator = "\n\n" if conversation != "" else ""
-    conversation_extended = f"{conversation}{separator}{row_message}"
-
-    if not has_no_reply_nodes(row_node):
-      if row_node["role"] == "assistant":
-        # Assume that there is always an assistant response to prompter
-        # Therefore there are always replies to the following prompter requests.
-        for reply_node in row_node["replies"]:
-          progress.update(1)
-          fill_threads(reply_node, threads, conversation_extended, progress)
-      else:  # row_node["role"] == "prompter":
-        # Do some pre-processing to the upcoming nodes since there can be prompter responses not being followed up with assistant responses.
-        # In such cases we need to eliminate the last prompter response.
-        for idx_asst, asst_reply_node in enumerate(row_node["replies"]):
-          for idx_prmptr, prmptr_reply_node in enumerate(asst_reply_node["replies"]):
-            found_real_asst_replies_prmptr = False
-            for asst_reply_node_prmptr in prmptr_reply_node["replies"]:
-              found_real_asst_replies_prmptr = not asst_reply_node_prmptr["deleted"] and asst_reply_node_prmptr["review_result"] # Check for not being a spam
-              if found_real_asst_replies_prmptr:
-                break
-            
-            if not found_real_asst_replies_prmptr:
-              prmptr_reply_node["deleted"] = True
-        
-        # Treat replies of this row_node (which belong to assistant) which are either reviewed or not, but with rank = null as those with rank 0 (lowest rank).
-        for idx, reply_node in enumerate(row_node["replies"]):
-          if reply_node["rank"] is None:
-            row_node["replies"][idx]["rank"] = 0
-
-        # Check if at least one of the replies here is the last.
-        # Also checks if the best ranked response is a terminating response.
-        replies_has_ending = False
-        for reply_node in row_node["replies"]:
-          replies_has_ending = reply_node["review_result"] and has_no_reply_nodes(reply_node) # Check if non-spam as well.
-          if replies_has_ending:
+        all_deleted = all_deleted and reply_node["deleted"]
+        if not all_deleted:
             break
-        
-        if replies_has_ending:
-          # The case where there is an ending in the succeeding replies. We need to add all responses of the row_node here to reply_threads.
-          conversation_extended_with_next = f"{conversation_extended}\n\nAssistant: "
-          threads[conversation_extended_with_next] = {
-              "responses": [],
-              "pairs": [],
-              "sft_target": None
-          }
 
-          best_rank = -1
-          best_rank_reply = ""
-          for i in range(len(row_node["replies"])):
+    return len(row_node["replies"]) == 0 or all_deleted
+
+
+def oa_get_low_quality_response(conversation_so_far: str):
+    prompt = f"{conversation_so_far}\n\n### RESPONSE:\n"
+    return ""
+
+
+def get_oa(split: str, silent: bool = False, cache_dir: str = None) -> Dict[
+    str, Dict[str, Union[List[Tuple[int, int]], List[str], str]]]:
+    """Load the OpenAssistant OASST1 dataset from Huggingface and convert it to the necessary format.
+
+      The dataset is converted to a dictionary with the following structure:
+      {
+          'prompt1': {
+              'responses': List[str],
+              'pairs': List[Tuple[int, int]],
+              'sft_target': str
+          },
+          'prompt2': {
+              ...
+          },
+      }
+
+      Prompts should be structured as follows:
+        \n\nHuman: <prompt>\n\nAssistant:
+      Multiple turns are allowed, but the prompt should always start with \n\nHuman: and end with \n\nAssistant:.
+
+      For this dataset, the sft_target is just the chosen response.
+    """
+
+    def fill_threads(row_node: dict, threads: dict, conversation: str, progress):
+        role = "HUMAN" if row_node["role"] == "prompter" else "RESPONSE"
+        row_message = f"### {role}:\n{row_node['text']}"
+        separator = "\n\n" if conversation != "" else ""
+        conversation_extended = f"{conversation}{separator}{row_message}"
+
+        if not oa_has_no_reply_nodes(row_node):
+            if row_node["role"] == "assistant":
+                # Assume that there is always an assistant response to prompter
+                # Therefore there are always replies to the following prompter requests.
+                for reply_node in row_node["replies"]:
+                    progress.update(1)
+                    fill_threads(reply_node, threads, conversation_extended, progress)
+            else:  # row_node["role"] == "prompter":
+                # Do some pre-processing to the upcoming nodes since there can be prompter responses not being followed up with assistant responses.
+                # In such cases we need to eliminate the last prompter response.
+                for idx_asst, asst_reply_node in enumerate(row_node["replies"]):
+                    for idx_prmptr, prmptr_reply_node in enumerate(asst_reply_node["replies"]):
+                        found_real_asst_replies_prmptr = False
+                        for asst_reply_node_prmptr in prmptr_reply_node["replies"]:
+                            found_real_asst_replies_prmptr = not asst_reply_node_prmptr["deleted"] and \
+                                                             asst_reply_node_prmptr[
+                                                                 "review_result"]  # Check for not being a spam
+                            if found_real_asst_replies_prmptr:
+                                break
+
+                        if not found_real_asst_replies_prmptr:
+                            prmptr_reply_node["deleted"] = True
+
+                # Treat replies of this row_node (which belong to assistant) which are either reviewed or not, but with rank = null as those with rank 0 (lowest rank).
+                for idx, reply_node in enumerate(row_node["replies"]):
+                    if reply_node["rank"] is None:
+                        row_node["replies"][idx]["rank"] = 0
+
+                # Check if at least one of the replies here is the last.
+                # Also checks if the best ranked response is a terminating response.
+                replies_has_ending = False
+                for reply_node in row_node["replies"]:
+                    replies_has_ending = reply_node["review_result"] and oa_has_no_reply_nodes(
+                        reply_node)  # Check if non-spam as well.
+                    if replies_has_ending:
+                        break
+
+                if replies_has_ending:
+                    # The case where there is an ending in the succeeding replies. We need to add all responses of the row_node here to reply_threads.
+                    conversation_extended_with_next = f"{conversation_extended}\n\n### RESPONSE:\n"
+                    threads[conversation_extended_with_next] = {
+                        "responses": [],
+                        "pairs": [],
+                        "sft_target": None
+                    }
+
+                    best_rank = -1
+                    best_rank_reply = ""
+                    for i in range(len(row_node["replies"])):
+                        progress.update(1)
+                        threads[conversation_extended_with_next]["responses"].append(row_node["replies"][i]["text"])
+
+                        if row_node["replies"][i]["rank"] > best_rank:
+                            best_rank = row_node["replies"][i]["rank"]
+                            best_rank_reply = row_node["replies"][i]["text"]
+
+                        for j in range(i + 1, len(row_node["replies"])):
+                            threads[conversation_extended_with_next]["pairs"].append(
+                                (i, j) if row_node["replies"][i]["rank"] > row_node["replies"][j]["rank"] else (j, i))
+
+                    # If there's only one response, add a garbage response to the list of replies.
+                    if len(row_node["replies"]) == 1:
+                        threads[conversation_extended_with_next]["responses"].append(
+                            oa_get_low_quality_response(conversation_extended))
+                        threads[conversation_extended_with_next]["pairs"].append((0, 1))
+
+                    threads[conversation_extended_with_next]["sft_target"] = best_rank_reply
+
+                # If the above additions were due to best ranked response termination, we do not proceed any further down the thread.
+                # Otherwise, we proceed.
+                # if not highest_rank_reply_is_end:
+                for reply_node in row_node["replies"]:
+                    progress.update(1)
+                    if not oa_has_no_reply_nodes(reply_node) and reply_node["review_result"]:
+                        # We proceed with all the replies that has further replies which also satisfies the other conditions above (1. Non-spam)
+                        fill_threads(reply_node, threads, conversation_extended, progress)
+        else:
             progress.update(1)
-            threads[conversation_extended_with_next]["responses"].append(row_node["replies"][i]["text"])
 
-            if row_node["replies"][i]["rank"] > best_rank:
-              best_rank = row_node["replies"][i]["rank"]
-              best_rank_reply = row_node["replies"][i]["text"]
+    print(f'Loading OA dataset ({split} split) from Huggingface...')
+    dataset = datasets.load_dataset("OpenAssistant/oasst1", split=split, cache_dir=cache_dir)
+    dataset = oa_apply_filters(dataset)
+    print('done')
 
-            for j in range(i + 1, len(row_node["replies"])):
-              threads[conversation_extended_with_next]["pairs"].append((i, j) if row_node["replies"][i]["rank"] > row_node["replies"][j]["rank"] else (j, i))
-          
-          # If there's only one response, add a garbage response to the list of replies.
-          if len(row_node["replies"]) == 1:
-            threads[conversation_extended_with_next]["responses"].append(get_low_quality_response(conversation_extended))
-            threads[conversation_extended_with_next]["pairs"].append((0, 1))
+    root_node = {
+        "message_id": "root_node",
+        "replies": []
+    }
 
-          threads[conversation_extended_with_next]["sft_target"] = best_rank_reply
-        
-        # If the above additions were due to best ranked response termination, we do not proceed any further down the thread.
-        # Otherwise, we proceed.
-        # if not highest_rank_reply_is_end:
-        for reply_node in row_node["replies"]:
-          progress.update(1)
-          if not has_no_reply_nodes(reply_node) and reply_node["review_result"]:
-            # We proceed with all the replies that has further replies which also satisfies the other conditions above (1. Non-spam)
-            fill_threads(reply_node, threads, conversation_extended, progress)
-    else:
-      progress.update(1)
+    with tqdm.tqdm(total=len(dataset), desc="Extracting OA dataset", disable=silent) as progress:
+        end_idx = oa_get_conversations_for_node(dataset, root_node, 0, progress)
 
-  print(f'Loading OA dataset ({split} split) from Huggingface...')
-  dataset = datasets.load_dataset("OpenAssistant/oasst1", split=split, cache_dir=cache_dir)
-  print('done')
+    data = {}
+    with tqdm.tqdm(total=len(dataset), desc="Formatting OA dataset", disable=silent) as progress:
+        for root_thread in root_node["replies"]:
+            fill_threads(root_thread, data, "", progress)
 
-  root_node = {
-      "message_id": "root_node",
-      "replies": []
-  }
+    return data
 
-  with tqdm.tqdm(total=len(dataset), desc="Extracting OA dataset", disable=silent) as progress:
-    end_idx = get_conversations_for_node(dataset, root_node, 0, progress)
-  
-  data = {}
-  with tqdm.tqdm(total=len(dataset), desc="Formatting OA dataset", disable=silent) as progress:
-    for root_thread in root_node["replies"]:
-      fill_threads(root_thread, data, "", progress)
 
-  return data
+def get_oa_guanaco(split: str, silent: bool = False, cache_dir: str = None) -> Dict[str, Dict[str, Union[List[Tuple[int, int]], List[str], str]]]:
+    """Load the OpenAssistant OASST1 dataset from Huggingface and convert it to the necessary format.
+
+      The dataset is converted to a dictionary with the following structure:
+      {
+          'prompt1': {
+              'responses': List[str],
+              'pairs': List[Tuple[int, int]],
+              'sft_target': str
+          },
+          'prompt2': {
+              ...
+          },
+      }
+
+      Prompts should be structured as follows:
+        \n\nHuman: <prompt>\n\nAssistant:
+      Multiple turns are allowed, but the prompt should always start with \n\nHuman: and end with \n\nAssistant:.
+
+      For this dataset, the sft_target is just the chosen response.
+    """
+
+    def get_highest_ranked_message(nodes: list):
+        highest_rank = -1
+        highest_ranked_message = None
+        for node in nodes:
+            if not (node["deleted"]) and node["rank"] > highest_rank:
+                highest_rank = node["rank"]
+                highest_ranked_message = node
+
+        return highest_ranked_message
+
+    def count_all_nodes(node: dict):
+        if len(node["replies"]) == 0:
+            return 1
+        else:
+            total = 1
+            for reply in node["replies"]:
+                total += count_all_nodes(reply)
+
+            return total
+
+    def fill_threads(row_node: dict, threads: dict, conversation: str, progress):
+        role = "HUMAN" if row_node["role"] == "prompter" else "RESPONSE"
+        row_message = f"### {role}: {row_node['text']}"
+        separator = "\n\n" if conversation != "" else ""
+        conversation_extended = f"{conversation}{separator}{row_message}"
+
+        if not oa_has_no_reply_nodes(row_node):
+            if row_node["role"] == "assistant":
+                # Assume that there is always an assistant response to prompter
+                # Therefore there are always replies to the following prompter requests.
+                for reply_node in row_node["replies"]:
+                    progress.update(1)
+                    fill_threads(reply_node, threads, conversation_extended, progress)
+            else:  # row_node["role"] == "prompter":
+                # Treat replies of this row_node (which belong to assistant) which are either reviewed or not, but with rank = null as those with rank 0 (lowest rank).
+                # Delete messages which are spam
+                for idx, reply_node in enumerate(row_node["replies"]):
+                    if reply_node["rank"] is None or not reply_node["review_result"]:
+                        row_node["replies"][idx]["deleted"] = True
+
+                # If there are no any reply nodes for this row_node, we can simply discontinue the subtree.
+                if oa_has_no_reply_nodes(row_node):
+                    progress.update(count_all_nodes(row_node))
+                    return
+
+                # Create a list of valid replies after filtering out deleted ones.
+                valid_replies = [reply_node for reply_node in row_node["replies"] if not reply_node["deleted"]]
+                # Update the progress for remaining nodes which won't be processed
+                progress.update(len(row_node["replies"]) - len(valid_replies))
+
+                # Get the Highest Ranked Reply
+                highest_ranked_reply = get_highest_ranked_message(row_node["replies"])
+
+                # Do some pre-processing to the highest ranked reply since there can be prompter responses not being followed up with assistant responses.
+                # In such cases we need to eliminate the last prompter response.
+                is_best_reply_ends = True
+                for idx_prmptr, prmptr_reply_node in enumerate(highest_ranked_reply["replies"]):
+                    found_real_asst_replies_prmptr = False
+                    for asst_reply_node_prmptr in prmptr_reply_node["replies"]:
+                        found_real_asst_replies_prmptr = not asst_reply_node_prmptr["deleted"] and \
+                                                         asst_reply_node_prmptr["review_result"] and \
+                                                         asst_reply_node_prmptr[
+                                                             "rank"] is not None  # Check for not being a spam and assure that it is ranked
+                        if found_real_asst_replies_prmptr:
+                            break
+
+                    if not found_real_asst_replies_prmptr:
+                        highest_ranked_reply["replies"][idx_prmptr]["deleted"] = True
+
+                    is_best_reply_ends = is_best_reply_ends and highest_ranked_reply["replies"][idx_prmptr]["deleted"]
+
+                if is_best_reply_ends:
+                    # The case where there is an ending in the succeeding replies. We need to add all responses of the row_node here to reply_threads.
+                    conversation_extended_with_next = f"{conversation_extended}\n\n### RESPONSE:\n"
+                    threads[conversation_extended_with_next] = {
+                        "responses": [],
+                        "pairs": [],
+                        "sft_target": None
+                    }
+
+                    best_rank = -1
+                    best_rank_reply = ""
+                    for i in range(len(valid_replies)):
+                        threads[conversation_extended_with_next]["responses"].append(valid_replies[i]["text"])
+
+                        if valid_replies[i]["rank"] > best_rank:
+                            best_rank = valid_replies[i]["rank"]
+                            best_rank_reply = valid_replies[i]["text"]
+
+                        for j in range(i + 1, len(valid_replies)):
+                            threads[conversation_extended_with_next]["pairs"].append(
+                                (i, j) if valid_replies[i]["rank"] > valid_replies[j]["rank"] else (j, i))
+
+                    # If there's only one response, add a garbage response to the list of replies.
+                    if len(valid_replies) == 1:
+                        threads[conversation_extended_with_next]["responses"].append(
+                            oa_get_low_quality_response(conversation_extended))
+                        threads[conversation_extended_with_next]["pairs"].append((0, 1))
+
+                    threads[conversation_extended_with_next]["sft_target"] = best_rank_reply
+                else:
+                    # We only proceed down the highest ranked reply thread.
+                    for reply in valid_replies:
+                        if reply["message_id"] != highest_ranked_reply["message_id"]:
+                            progress.update(count_all_nodes(reply))
+
+                    fill_threads(highest_ranked_reply, threads, conversation_extended, progress)
+        else:
+            progress.update(count_all_nodes(row_node))
+
+    print(f'Loading OA dataset ({split} split) from Huggingface...')
+    dataset = datasets.load_dataset("OpenAssistant/oasst1", split=split, cache_dir=cache_dir)
+    dataset = oa_apply_filters(dataset)
+    print('done')
+
+    root_node = {
+        "message_id": "root_node",
+        "replies": []
+    }
+
+    with tqdm.tqdm(total=len(dataset), desc="Extracting OA dataset", disable=False) as progress:
+        end_idx = oa_get_conversations_for_node(dataset, root_node, 0, progress)
+
+    data = {}
+    with tqdm.tqdm(total=len(dataset), desc="Formatting OA dataset", disable=False) as progress:
+        for root_thread in root_node["replies"]:
+            fill_threads(root_thread, data, "", progress)
+
+    return data
 
 
 def get_dataset(name: str, split: str, silent: bool = False, cache_dir: str = None):
@@ -320,10 +584,16 @@ def get_dataset(name: str, split: str, silent: bool = False, cache_dir: str = No
         data = get_shp(split, silent=silent, cache_dir=cache_dir)
     elif name == 'hh':
         data = get_hh(split, silent=silent, cache_dir=cache_dir)
+    elif name == 'lamini-lm':
+        data = get_lamini_lm(split, silent=silent, cache_dir=cache_dir)
+    elif name == 'orca':
+        data = get_orca(split, silent=silent, cache_dir=cache_dir)
     elif name == 'se':
         data = get_se(split, silent=silent, cache_dir=cache_dir)
     elif name == 'oa':
         data = get_oa("validation" if split == "test" else split, silent=silent, cache_dir=cache_dir)
+    elif name == 'oa_guanaco':
+        data = get_oa_guanaco("validation" if split == "test" else split, silent=silent, cache_dir=cache_dir)
     else:
         raise ValueError(f"Unknown dataset '{name}'")
 
@@ -339,6 +609,7 @@ def get_collate_fn(tokenizer) -> Callable[[List[Dict]], Dict[str, Union[List, to
        The collate function takes a list of examples (dicts, where values are lists of
          ints [tokens] or strings [the original texts]) and returns a batch of examples,
          PyTorch tensors padded to the maximum length. Strings are passed through."""
+
     def collate_fn(batch):
         # first, pad everything to the same length
         padded_batch = {}
@@ -364,10 +635,12 @@ def get_collate_fn(tokenizer) -> Callable[[List[Dict]], Dict[str, Union[List, to
                 padded_batch[k] = [ex[k] for ex in batch]
 
         return padded_batch
+
     return collate_fn
 
 
-def tokenize_batch_element(prompt: str, chosen: str, rejected: str, truncation_mode: str, tokenizer, max_length: int, max_prompt_length: int) -> Dict:
+def tokenize_batch_element(prompt: str, chosen: str, rejected: str, truncation_mode: str, tokenizer, max_length: int,
+                           max_prompt_length: int) -> Dict:
     """Tokenize a single batch element.
     
        At this stage, we don't convert to PyTorch tensors yet; we just handle the truncation
@@ -384,7 +657,8 @@ def tokenize_batch_element(prompt: str, chosen: str, rejected: str, truncation_m
 
     assert tokenizer.eos_token_id not in prompt_tokens['input_ids'], f"Prompt contains EOS token: {prompt}"
     assert tokenizer.eos_token_id not in chosen_tokens['input_ids'], f"Chosen response contains EOS token: {chosen}"
-    assert tokenizer.eos_token_id not in rejected_tokens['input_ids'], f"Rejected response contains EOS token: {rejected}"
+    assert tokenizer.eos_token_id not in rejected_tokens[
+        'input_ids'], f"Rejected response contains EOS token: {rejected}"
 
     chosen_tokens['input_ids'].append(tokenizer.eos_token_id)
     chosen_tokens['attention_mask'].append(1)
@@ -424,7 +698,8 @@ def tokenize_batch_element(prompt: str, chosen: str, rejected: str, truncation_m
     batch['chosen_response_only'] = chosen
     batch['rejected_response_only'] = rejected
 
-    for k, toks in {'chosen': chosen_sequence_tokens, 'rejected': rejected_sequence_tokens, 'prompt': prompt_tokens}.items():
+    for k, toks in {'chosen': chosen_sequence_tokens, 'rejected': rejected_sequence_tokens,
+                    'prompt': prompt_tokens}.items():
         for type_key, tokens in toks.items():
             if type_key == 'token_type_ids':
                 continue
@@ -444,7 +719,7 @@ def get_batch_iterator(names: List[str],
                        n_epochs: Optional[int] = None,
                        n_examples: Optional[int] = None,
                        d_examples: Optional[int] = None,
-                       seed:int = 0,
+                       seed: int = 0,
                        silent: bool = False,
                        cache_dir: Optional[str] = None) -> Iterator[Dict]:
     """Get an iterator over batches of data. Stops after n_epochs or n_examples, whichever comes first.
@@ -471,7 +746,7 @@ def get_batch_iterator(names: List[str],
         datasets.logging.set_verbosity_error()
 
     with TemporarilySeededRandom(seed):
-        permutation_seeds = iter(np.random.randint(0, 2**32, size=1000000))
+        permutation_seeds = iter(np.random.randint(0, 2 ** 32, size=1000000))
         flat_data = []
         for name in names:
             truncation_mode = 'keep_end' if name == 'hh' else 'keep_start'
@@ -500,7 +775,8 @@ def get_batch_iterator(names: List[str],
             if done:
                 break
             if sft_mode:
-                batch_element = tokenize_batch_element(prompt, sft_target, sft_target, truncation_mode, tokenizer, max_length, max_prompt_length)
+                batch_element = tokenize_batch_element(prompt, sft_target, sft_target, truncation_mode, tokenizer,
+                                                       max_length, max_prompt_length)
                 batch_element = {k: v for k, v in batch_element.items() if 'rejected' not in k}
                 batch.append(batch_element)
                 example_idx += 1
@@ -516,7 +792,8 @@ def get_batch_iterator(names: List[str],
                 for p in pairs:
                     if done:
                         break
-                    batch_element = tokenize_batch_element(prompt, responses[p[0]], responses[p[1]], truncation_mode, tokenizer, max_length, max_prompt_length)
+                    batch_element = tokenize_batch_element(prompt, responses[p[0]], responses[p[1]], truncation_mode,
+                                                           tokenizer, max_length, max_prompt_length)
                     batch.append(batch_element)
                     example_idx += 1
                     if len(batch) == batch_size:
