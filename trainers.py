@@ -80,7 +80,7 @@ def dpo_loss(policy_chosen_logps: torch.FloatTensor,
     return losses, chosen_rewards, rejected_rewards
 
 
-def _get_batch_logps(logits: torch.FloatTensor, labels: torch.LongTensor, average_log_prob: bool = False, tokenizer = None) -> torch.FloatTensor:
+def _get_batch_logps(logits: torch.FloatTensor, labels: torch.LongTensor, average_log_prob: bool = False, tokenizer = None, max_sequence_length: int = 512) -> torch.FloatTensor:
     """Compute the log probabilities of the given labels under the given logits.
 
     Args:
@@ -91,9 +91,6 @@ def _get_batch_logps(logits: torch.FloatTensor, labels: torch.LongTensor, averag
     Returns:
         A tensor of shape (batch_size,) containing the average/sum log probabilities of the given labels under the given logits.
     """
-    # Find the maximum sequence length between logits and labels
-    max_sequence_length = max(logits.size(1), labels.size(1))
-
     # Calculate the padding required for both tensors
     logits_padding = max_sequence_length - logits.size(1)
     labels_padding = max_sequence_length - labels.size(1)
@@ -105,7 +102,7 @@ def _get_batch_logps(logits: torch.FloatTensor, labels: torch.LongTensor, averag
 
     # Pad the labels with tokenizer.pad_token_id
     if labels_padding > 0:
-        padding = torch.full((labels.size(0), labels_padding), tokenizer.pad_token_id)
+        padding = torch.full((labels.size(0), labels_padding), -100)
         labels = torch.cat((labels, padding), dim=1)
 
     assert logits.shape[:-1] == labels.shape
