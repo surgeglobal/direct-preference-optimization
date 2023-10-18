@@ -46,7 +46,7 @@ def strip_html_tags(html_string):
 def get_se(split, silent=False, cache_dir: str = None) -> Dict[
     str, Dict[str, Union[List[Tuple[int, int]], List[str], str]]]:
     """Load the StackExchange dataset from Huggingface, and return a dict of prompts and responses. See get_hh for the format.
-    
+
        We strip the HTML tags from the responses (except for <code> tags), and we add necessary newlines.
     """
     print(f'Loading SE dataset ({split} split) from Huggingface...')
@@ -125,7 +125,7 @@ def get_shp(split: str, silent: bool = False, cache_dir: str = None) -> Dict[
 def get_hh(split: str, silent: bool = False, cache_dir: str = None) -> Dict[
     str, Dict[str, Union[List[Tuple[int, int]], List[str], str]]]:
     """Load the Anthropic Helpful-Harmless dataset from Huggingface and convert it to the necessary format.
-    
+
        The dataset is converted to a dictionary with the following structure:
        {
            'prompt1': {
@@ -141,7 +141,7 @@ def get_hh(split: str, silent: bool = False, cache_dir: str = None) -> Dict[
        Prompts should be structured as follows:
          \n\nHuman: <prompt>\n\nAssistant:
        Multiple turns are allowed, but the prompt should always start with \n\nHuman: and end with \n\nAssistant:.
-       
+
        For this dataset, the sft_target is just the chosen response.
     """
     print(f'Loading HH dataset ({split} split) from Huggingface...')
@@ -149,7 +149,8 @@ def get_hh(split: str, silent: bool = False, cache_dir: str = None) -> Dict[
     print('done')
 
     def split_prompt_and_responses(ex):
-        prompt = extract_anthropic_prompt(ex['chosen']).replace("Human:", "### HUMAN:\n").replace("Assistant:", "### RESPONSE:\n")
+        prompt = extract_anthropic_prompt(ex['chosen']).replace("Human:", "### HUMAN:\n").replace("Assistant:",
+                                                                                                  "### RESPONSE:\n")
         chosen_response = ex['chosen'][len(prompt):]
         rejected_response = ex['rejected'][len(prompt):]
         return prompt, chosen_response, rejected_response
@@ -292,7 +293,6 @@ def oa_has_no_reply_nodes(row_node: dict):
 
 
 def oa_get_low_quality_response(conversation_so_far: str):
-    prompt = f"{conversation_so_far}\n\n### RESPONSE:\n"
     return ""
 
 
@@ -425,7 +425,8 @@ def get_oa(split: str, silent: bool = False, cache_dir: str = None) -> Dict[
     return data
 
 
-def get_oa_guanaco(split: str, silent: bool = False, cache_dir: str = None) -> Dict[str, Dict[str, Union[List[Tuple[int, int]], List[str], str]]]:
+def get_oa_guanaco(split: str, silent: bool = False, cache_dir: str = None) -> Dict[
+    str, Dict[str, Union[List[Tuple[int, int]], List[str], str]]]:
     """Load the OpenAssistant OASST1 dataset from Huggingface and convert it to the necessary format.
 
       The dataset is converted to a dictionary with the following structure:
@@ -468,9 +469,9 @@ def get_oa_guanaco(split: str, silent: bool = False, cache_dir: str = None) -> D
             return total
 
     def fill_threads(row_node: dict, threads: dict, conversation: str, progress):
-        role = "HUMAN" if row_node["role"] == "prompter" else "RESPONSE"
-        row_message = f"### {role}: {row_node['text']}"
-        separator = "\n\n" if conversation != "" else ""
+        role = "Human" if row_node["role"] == "prompter" else "Assistant"
+        row_message = f"{role}: {row_node['text']}"
+        separator = "\n" if conversation != "" else ""
         conversation_extended = f"{conversation}{separator}{row_message}"
 
         if not oa_has_no_reply_nodes(row_node):
@@ -520,7 +521,7 @@ def get_oa_guanaco(split: str, silent: bool = False, cache_dir: str = None) -> D
 
                 if is_best_reply_ends:
                     # The case where there is an ending in the succeeding replies. We need to add all responses of the row_node here to reply_threads.
-                    conversation_extended_with_next = f"{conversation_extended}\n\n### RESPONSE:\n"
+                    conversation_extended_with_next = f"Continue writing the following text.\n\n{conversation_extended}"
                     threads[conversation_extended_with_next] = {
                         "responses": [],
                         "pairs": [],
@@ -530,7 +531,8 @@ def get_oa_guanaco(split: str, silent: bool = False, cache_dir: str = None) -> D
                     best_rank = -1
                     best_rank_reply = ""
                     for i in range(len(valid_replies)):
-                        threads[conversation_extended_with_next]["responses"].append(valid_replies[i]["text"])
+                        threads[conversation_extended_with_next]["responses"].append(
+                            f"Assistant: {valid_replies[i]['text']}")
 
                         if valid_replies[i]["rank"] > best_rank:
                             best_rank = valid_replies[i]["rank"]
@@ -543,10 +545,10 @@ def get_oa_guanaco(split: str, silent: bool = False, cache_dir: str = None) -> D
                     # If there's only one response, add a garbage response to the list of replies.
                     if len(valid_replies) == 1:
                         threads[conversation_extended_with_next]["responses"].append(
-                            oa_get_low_quality_response(conversation_extended))
+                            f"Assistant: {oa_get_low_quality_response(conversation_extended)}")
                         threads[conversation_extended_with_next]["pairs"].append((0, 1))
 
-                    threads[conversation_extended_with_next]["sft_target"] = best_rank_reply
+                    threads[conversation_extended_with_next]["sft_target"] = f"Assistant: {best_rank_reply}"
                 else:
                     # We only proceed down the highest ranked reply thread.
                     for reply in valid_replies:
@@ -605,7 +607,7 @@ def get_dataset(name: str, split: str, silent: bool = False, cache_dir: str = No
 
 def get_collate_fn(tokenizer) -> Callable[[List[Dict]], Dict[str, Union[List, torch.Tensor]]]:
     """Returns a collate function for the given tokenizer.
-    
+
        The collate function takes a list of examples (dicts, where values are lists of
          ints [tokens] or strings [the original texts]) and returns a batch of examples,
          PyTorch tensors padded to the maximum length. Strings are passed through."""
@@ -642,11 +644,11 @@ def get_collate_fn(tokenizer) -> Callable[[List[Dict]], Dict[str, Union[List, to
 def tokenize_batch_element(prompt: str, chosen: str, rejected: str, truncation_mode: str, tokenizer, max_length: int,
                            max_prompt_length: int) -> Dict:
     """Tokenize a single batch element.
-    
+
        At this stage, we don't convert to PyTorch tensors yet; we just handle the truncation
          in case the prompt + chosen or prompt + rejected responses is/are too long. First
          we truncate the prompt; if we're still too long, we truncate the chosen/rejected.
-       
+
        We also create the labels for the chosen/rejected responses, which are of length equal to
          the sum of the length of the prompt and the chosen/rejected response, with -100 for the
          prompt tokens.
