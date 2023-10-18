@@ -469,7 +469,7 @@ def get_oa_guanaco(split: str, silent: bool = False, cache_dir: str = None) -> D
             return total
 
     def fill_threads(row_node: dict, threads: dict, conversation: str, progress):
-        role = "Human" if row_node["role"] == "prompter" else "Assistant"
+        role = "Bob" if row_node["role"] == "prompter" else "Eve"
         row_message = f"{role}: {row_node['text']}"
         separator = "\n" if conversation != "" else ""
         conversation_extended = f"{conversation}{separator}{row_message}"
@@ -532,7 +532,7 @@ def get_oa_guanaco(split: str, silent: bool = False, cache_dir: str = None) -> D
                     best_rank_reply = ""
                     for i in range(len(valid_replies)):
                         threads[conversation_extended_with_next]["responses"].append(
-                            f"Assistant: {valid_replies[i]['text']}")
+                            f"Eve: {valid_replies[i]['text']}")
 
                         if valid_replies[i]["rank"] > best_rank:
                             best_rank = valid_replies[i]["rank"]
@@ -545,10 +545,10 @@ def get_oa_guanaco(split: str, silent: bool = False, cache_dir: str = None) -> D
                     # If there's only one response, add a garbage response to the list of replies.
                     if len(valid_replies) == 1:
                         threads[conversation_extended_with_next]["responses"].append(
-                            f"Assistant: {oa_get_low_quality_response(conversation_extended)}")
+                            f"Eve: {oa_get_low_quality_response(conversation_extended)}")
                         threads[conversation_extended_with_next]["pairs"].append((0, 1))
 
-                    threads[conversation_extended_with_next]["sft_target"] = f"Assistant: {best_rank_reply}"
+                    threads[conversation_extended_with_next]["sft_target"] = f"Eve: {best_rank_reply}"
                 else:
                     # We only proceed down the highest ranked reply thread.
                     for reply in valid_replies:
