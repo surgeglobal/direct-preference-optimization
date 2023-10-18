@@ -671,7 +671,7 @@ def tokenize_batch_element(prompt: str, chosen: str, rejected: str, truncation_m
     longer_response_length = max(len(chosen_tokens['input_ids']), len(rejected_tokens['input_ids']))
 
     # if combined sequence is too long, truncate the prompt
-    if len(prompt_tokens['input_ids']) + longer_response_length > max_length:
+    if len(prompt_tokens['input_ids']) > max_prompt_length:
         if truncation_mode == 'keep_start':
             prompt_tokens = {k: v[:max_prompt_length] for k, v in prompt_tokens.items()}
         elif truncation_mode == 'keep_end':
@@ -679,10 +679,11 @@ def tokenize_batch_element(prompt: str, chosen: str, rejected: str, truncation_m
         else:
             raise ValueError(f'Unknown truncation mode: {truncation_mode}')
 
-    # if that's still too long, truncate the response
-    if len(prompt_tokens['input_ids']) + longer_response_length > max_length:
-        chosen_tokens = {k: v[:max_length - max_prompt_length] for k, v in chosen_tokens.items()}
-        rejected_tokens = {k: v[:max_length - max_prompt_length] for k, v in rejected_tokens.items()}
+    # If responses are long, truncate them
+    if len(chosen_tokens['input_ids']) > max_length:
+        chosen_tokens = {k: v[:max_length] for k, v in chosen_tokens.items()}
+    if len(rejected_tokens['input_ids']) > max_length:
+        rejected_tokens = {k: v[:max_length] for k, v in rejected_tokens.items()}
 
     # Create labels
     chosen_sequence_tokens = {k: prompt_tokens[k] + chosen_tokens[k] for k in chosen_tokens}
