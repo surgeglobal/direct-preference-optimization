@@ -80,7 +80,7 @@ def dpo_loss(policy_chosen_logps: torch.FloatTensor,
     return losses, chosen_rewards, rejected_rewards
 
 
-def _get_batch_logps(logits: torch.FloatTensor, labels: torch.LongTensor, average_log_prob: bool = False) -> torch.FloatTensor:
+def _get_batch_logps(logits: torch.FloatTensor, labels: torch.LongTensor, average_log_prob: bool = False, tokenizer = None) -> torch.FloatTensor:
     """Compute the log probabilities of the given labels under the given logits.
 
     Args:
@@ -91,6 +91,23 @@ def _get_batch_logps(logits: torch.FloatTensor, labels: torch.LongTensor, averag
     Returns:
         A tensor of shape (batch_size,) containing the average/sum log probabilities of the given labels under the given logits.
     """
+    # Find the maximum sequence length between logits and labels
+    max_sequence_length = max(logits.size(1), labels.size(1))
+
+    # Calculate the padding required for both tensors
+    logits_padding = max_sequence_length - logits.size(1)
+    labels_padding = max_sequence_length - labels.size(1)
+
+    # Pad the logits with tokenizer.pad_token_id
+    if logits_padding > 0:
+        padding = torch.full((logits.size(0), logits_padding, logits.size(2)), tokenizer.pad_token_id)
+        logits = torch.cat((logits, padding), dim=1)
+
+    # Pad the labels with tokenizer.pad_token_id
+    if labels_padding > 0:
+        padding = torch.full((labels.size(0), labels_padding), tokenizer.pad_token_id)
+        labels = torch.cat((labels, padding), dim=1)
+
     assert logits.shape[:-1] == labels.shape
 
     labels = labels[:, 1:].clone()
@@ -248,8 +265,8 @@ class BasicTrainer(object):
             metrics[f'logps_{train_test}/rejected'] = policy_rejected_logps.cpu().numpy().tolist()
 
         elif loss_config.name == 'sft':
-            policy_chosen_logits = self.policy(batch['chosen_input_ids'], attention_mask=batch['chosen_attention_mask'], labels=batch['chosen_labels']).logits.to(torch.float32)
-            policy_chosen_logps = _get_batch_logps(policy_chosen_logits, batch['chosen_labels'], average_log_prob=False)
+            policy_chosen_logits = self.policy(batch['prompt_input_ids'], attention_mask=batch['prompt_attention_mask'], labels=batch['chosen_input_ids']).logits.to(torch.float32)
+            policy_chosen_logps = _get_batch_logps(policy_chosen_logits, batch['chosen_input_ids'], average_log_prob=False, tokenizer=self.tokenizer)
 
             losses = -policy_chosen_logps
 

@@ -662,13 +662,15 @@ def tokenize_batch_element(prompt: str, chosen: str, rejected: str, truncation_m
     assert tokenizer.eos_token_id not in rejected_tokens[
         'input_ids'], f"Rejected response contains EOS token: {rejected}"
 
+    chosen_tokens['input_ids'].insert(0, tokenizer.pad_token_id)
+    chosen_tokens['attention_mask'].insert(0, 1)
     chosen_tokens['input_ids'].append(tokenizer.eos_token_id)
     chosen_tokens['attention_mask'].append(1)
 
+    rejected_tokens['input_ids'].insert(0, tokenizer.pad_token_id)
+    rejected_tokens['attention_mask'].insert(0, 1)
     rejected_tokens['input_ids'].append(tokenizer.eos_token_id)
     rejected_tokens['attention_mask'].append(1)
-
-    longer_response_length = max(len(chosen_tokens['input_ids']), len(rejected_tokens['input_ids']))
 
     # if combined sequence is too long, truncate the prompt
     if len(prompt_tokens['input_ids']) > max_prompt_length:
@@ -686,12 +688,8 @@ def tokenize_batch_element(prompt: str, chosen: str, rejected: str, truncation_m
         rejected_tokens = {k: v[:max_length] for k, v in rejected_tokens.items()}
 
     # Create labels
-    chosen_sequence_tokens = {k: prompt_tokens[k] + chosen_tokens[k] for k in chosen_tokens}
-    rejected_sequence_tokens = {k: prompt_tokens[k] + rejected_tokens[k] for k in rejected_tokens}
-    chosen_sequence_tokens['labels'] = chosen_sequence_tokens['input_ids'][:]
-    chosen_sequence_tokens['labels'][:len(prompt_tokens['input_ids'])] = [-100] * len(prompt_tokens['input_ids'])
-    rejected_sequence_tokens['labels'] = rejected_sequence_tokens['input_ids'][:]
-    rejected_sequence_tokens['labels'][:len(prompt_tokens['input_ids'])] = [-100] * len(prompt_tokens['input_ids'])
+    chosen_sequence_tokens = chosen_tokens
+    rejected_sequence_tokens = rejected_tokens
 
     batch = {}
 
