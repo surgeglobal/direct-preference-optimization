@@ -1,0 +1,10 @@
+name_or_path: MBZUAI/LaMini-Flan-T5-783M
+tokenizer_name_or_path: null
+is_peft: false
+peft_model_name: null
+archive: null
+block_name: T5Block
+
+policy_dtype: float32
+fsdp_policy_mp: null
+reference_dtype: float32
